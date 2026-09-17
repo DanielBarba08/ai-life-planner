@@ -38,7 +38,11 @@ evidence_sources = sa.table(
     sa.column("year", sa.Integer),
     sa.column("study_type", sa.String),
     sa.column("doi", sa.String),
-    sa.column("evidence_level", sa.String),
+    # Mismo tipo Enum que la columna real (ver 04bb1ee767bd) — en Postgres
+    # es un ENUM nativo y el INSERT necesita el cast correcto, si no
+    # truena con DatatypeMismatch (sa.String sí "funcionaba" en SQLite
+    # porque ahí un enum es solo VARCHAR+CHECK).
+    sa.column("evidence_level", sa.Enum("SOLIDA", "MODERADA", "LIMITADA", name="evidencelevel")),
     sa.column("limitations", sa.Text),
 )
 
