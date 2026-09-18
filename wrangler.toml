@@ -1,0 +1,12 @@
+name = "ai-life-planner"
+compatibility_date = "2026-09-01"
+
+# Sitio estático (el build web de Expo, ver frontend/package.json::build:web)
+# servido como Workers Static Assets. En la raíz del repo (no dentro de
+# frontend/) porque la UI de Cloudflare para este flujo no tiene un campo
+# de "root directory" — el build command entra a frontend/ él mismo (ver
+# instrucciones de despliegue) y este archivo apunta ahí con la ruta
+# relativa a la raíz.
+[assets]
+directory = "./frontend/dist"
+not_found_handling = "single-page-application"
