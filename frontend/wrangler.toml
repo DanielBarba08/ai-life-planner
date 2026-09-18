@@ -1,0 +1,8 @@
+name = "ai-life-planner"
+compatibility_date = "2026-09-01"
+
+# Sitio estático (el build web de Expo, ver package.json::build:web) servido
+# como Workers Static Assets — sección de despliegue del blueprint.
+[assets]
+directory = "./dist"
+not_found_handling = "single-page-application"
