@@ -67,7 +67,12 @@ class PlanBlock(Base):
     )
 
     source_type: Mapped[BlockSourceType] = mapped_column(Enum(BlockSourceType), nullable=False)
-    source_id: Mapped[str] = mapped_column(String(36), nullable=False)
+    # 64, no 36: para bloques de disponibilidad, app/planning/service.py
+    # arma el id como f"availability:{uuid}" (13 + 36 = 49 caracteres) para
+    # no confundirlo con el id de un Task real — 36 (un UUID puro) se
+    # quedaba corto y solo se notaba en Postgres (SQLite no aplica el
+    # límite de VARCHAR, así que en desarrollo/tests pasaba desapercibido).
+    source_id: Mapped[str] = mapped_column(String(64), nullable=False)
     title: Mapped[str] = mapped_column(String(200), nullable=False)
     start: Mapped[datetime] = mapped_column(DateTime, nullable=False)
     end: Mapped[datetime] = mapped_column(DateTime, nullable=False)
