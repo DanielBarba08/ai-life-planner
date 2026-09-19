@@ -18,11 +18,22 @@ import type { AjustesStackParamList } from '../../navigation/types';
 type Props = NativeStackScreenProps<AjustesStackParamList, 'Disponibilidad'>;
 
 const DAY_LABEL = ['Lunes', 'Martes', 'Miércoles', 'Jueves', 'Viernes', 'Sábado', 'Domingo'];
-const TYPE_LABEL: Record<string, string> = { trabajo: 'Trabajo', escuela: 'Escuela', personal: 'Personal', otro: 'Otro' };
+const TYPE_LABEL: Record<string, string> = {
+  trabajo: 'Trabajo',
+  escuela: 'Escuela',
+  personal: 'Personal',
+  comida: 'Comida',
+  aseo: 'Aseo',
+  descanso: 'Descanso',
+  otro: 'Otro',
+};
 const TYPE_ICON: Record<string, keyof typeof Ionicons.glyphMap> = {
   trabajo: 'briefcase-outline',
   escuela: 'school-outline',
   personal: 'person-outline',
+  comida: 'restaurant-outline',
+  aseo: 'water-outline',
+  descanso: 'moon-outline',
   otro: 'ellipsis-horizontal-outline',
 };
 
@@ -64,7 +75,7 @@ export default function DisponibilidadScreen({ navigation }: Props) {
     <Screen>
       <BackHeader title="Disponibilidad" onBack={() => navigation.goBack()} />
       <Text style={styles.subtitle}>
-        Bloques recurrentes de trabajo o escuela — "Optimizar mi día" nunca pone tareas ahí, cada semana, sin que tengas que repetirlo.
+        Bloques recurrentes de trabajo, escuela, comida, aseo o descanso — "Optimizar mi día" nunca pone tareas ahí, cada semana, sin que tengas que repetirlo.
       </Text>
 
       <Button label="+ Nuevo bloque" variant="secondary" onPress={() => setFormVisible(true)} />

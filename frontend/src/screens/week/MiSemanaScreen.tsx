@@ -8,10 +8,14 @@ import { planningApi } from '../../api/endpoints';
 import type { WeekDay } from '../../api/types';
 import { Button } from '../../components/Button';
 import { Card } from '../../components/Card';
+import { Pill } from '../../components/Pill';
 import { Screen } from '../../components/Screen';
+import { WeekCalendarGrid } from '../../components/WeekCalendarGrid';
 import { radius, spacing, type } from '../../theme/tokens';
 import { useTheme } from '../../theme/ThemeContext';
 import { addDaysIso, formatDurationMin, mondayOfWeek, shortWeekdayLabel, todayIsoDate, wallClockTime } from '../../utils/date';
+
+type ViewMode = 'lista' | 'calendario';
 
 const TODAY = todayIsoDate();
 
@@ -43,6 +47,8 @@ export default function MiSemanaScreen() {
         navToday: { ...type.caption, color: color.accent, marginTop: 2 },
         error: { color: color.danger, ...type.body, marginBottom: spacing.md },
         muted: { ...type.body, color: color.muted },
+        modeRow: { flexDirection: 'row', marginBottom: spacing.md },
+        modeWrap: { marginRight: spacing.sm },
       }),
     [color]
   );
@@ -50,6 +56,7 @@ export default function MiSemanaScreen() {
   const [weekStart, setWeekStart] = useState(mondayOfWeek(TODAY));
   const [optimizingDate, setOptimizingDate] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
+  const [viewMode, setViewMode] = useState<ViewMode>('lista');
 
   const weekQuery = useQuery<WeekDay[]>({
     queryKey: ['week', weekStart],
@@ -100,12 +107,27 @@ export default function MiSemanaScreen() {
         </Pressable>
       </View>
 
+      <View style={styles.modeRow}>
+        <Pressable style={styles.modeWrap} onPress={() => setViewMode('lista')}>
+          <Pill label="Lista" fg={viewMode === 'lista' ? color.accentInk : color.muted} bg={viewMode === 'lista' ? color.accent : color.surfaceAlt} />
+        </Pressable>
+        <Pressable style={styles.modeWrap} onPress={() => setViewMode('calendario')}>
+          <Pill
+            label="Calendario"
+            fg={viewMode === 'calendario' ? color.accentInk : color.muted}
+            bg={viewMode === 'calendario' ? color.accent : color.surfaceAlt}
+          />
+        </Pressable>
+      </View>
+
       {error ? <Text style={styles.error}>{error}</Text> : null}
 
       {weekQuery.isLoading ? (
         <ActivityIndicator color={color.accent} style={{ marginTop: spacing.xl }} />
       ) : weekQuery.isError ? (
         <Text style={styles.muted}>No pudimos cargar tu semana.</Text>
+      ) : viewMode === 'calendario' ? (
+        <WeekCalendarGrid days={weekQuery.data ?? []} todayIso={TODAY} />
       ) : (
         (weekQuery.data ?? []).map((day) => (
           <DayCard

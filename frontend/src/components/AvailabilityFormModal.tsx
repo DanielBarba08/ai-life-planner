@@ -14,6 +14,9 @@ const TYPES: { value: AvailabilityType; label: string }[] = [
   { value: 'trabajo', label: 'Trabajo' },
   { value: 'escuela', label: 'Escuela' },
   { value: 'personal', label: 'Personal' },
+  { value: 'comida', label: 'Comida' },
+  { value: 'aseo', label: 'Aseo' },
+  { value: 'descanso', label: 'Descanso' },
   { value: 'otro', label: 'Otro' },
 ];
 
@@ -121,8 +124,8 @@ export function AvailabilityFormModal({ visible, onClose, onSaved }: { visible: 
             <View style={{ width: spacing.sm }} />
             <Button label="Agregar" onPress={submit} loading={loading} />
           </View>
-        </View>
       </View>
-    </Modal>
+    </View>
+  </Modal>
   );
 }

@@ -9,11 +9,22 @@ from app.database import Base
 
 
 class AvailabilityType(str, enum.Enum):
-    """Tipo de disponibilidad recurrente (sección 5 del brief original)."""
+    """Tipo de disponibilidad recurrente (sección 5 del brief original).
+
+    MEAL, HYGIENE y REST se agregaron a petición de Daniel: antes solo
+    existían bloques de trabajo/escuela/personal, así que "Optimizar mi
+    día" sí podía poner una tarea encima de la hora de comer, bañarse o
+    descansar si no había nada más marcado como ocupado ahí. Son el mismo
+    mecanismo (un bloque recurrente semanal que el motor trata como
+    ocupado, ver app/planning/service.py::_build_fixed_items) — no hace
+    falta tocar engine.py para que se respeten."""
 
     WORK = "trabajo"
     SCHOOL = "escuela"
     PERSONAL = "personal"
+    MEAL = "comida"
+    HYGIENE = "aseo"
+    REST = "descanso"
     OTHER = "otro"
 
 
