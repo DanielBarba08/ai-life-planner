@@ -97,6 +97,14 @@ export function WeekCalendarGrid({ days, todayIso }: { days: WeekDay[]; todayIso
   const styles = React.useMemo(
     () =>
       StyleSheet.create({
+        // El grid (eje de horas + columnas de días) mide menos que el
+        // ancho disponible en pantallas anchas (web/escritorio), así que
+        // por default queda pegado a la izquierda con un montón de espacio
+        // vacío a la derecha (justo lo que Daniel reportó). alignItems:
+        // 'center' en el contenedor centra ese bloque de ancho fijo dentro
+        // del espacio disponible; en pantallas angostas donde el grid no
+        // cabe, no cambia nada (sigue empezando desde la izquierda).
+        wrap: { alignItems: 'center' },
         row: { flexDirection: 'row' },
         axisCol: { width: HOUR_AXIS_WIDTH },
         axisSpacer: { height: HEADER_HEIGHT },
@@ -135,7 +143,7 @@ export function WeekCalendarGrid({ days, todayIso }: { days: WeekDay[]; todayIso
     // components/Screen.tsx) ya envuelve toda la pantalla en uno — anidar
     // dos verticales aquí encima rompe el gesto de scroll en RN. Solo el
     // scroll horizontal de los días es local a este componente.
-    <View>
+    <View style={styles.wrap}>
       <View style={styles.row}>
         <View style={styles.axisCol}>
           <View style={styles.axisSpacer} />
