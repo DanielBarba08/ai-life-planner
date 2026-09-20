@@ -50,7 +50,11 @@ export function AvailabilityFormModal({ visible, onClose, onSaved }: { visible: 
     [color, elevation]
   );
   const [type, setType] = useState<AvailabilityType>('trabajo');
-  const [dayOfWeek, setDayOfWeek] = useState(0);
+  // Varios días en un solo llenado (pedido por Daniel: antes solo se podía
+  // elegir uno, así que agregar "Comida" de lunes a viernes eran 5 idas y
+  // vueltas al modal) — un día activo se puede desactivar, pero al menos
+  // uno debe quedar marcado para poder enviar el formulario.
+  const [selectedDays, setSelectedDays] = useState<number[]>([0]);
   const [start, setStart] = useState('');
   const [end, setEnd] = useState('');
   const [error, setError] = useState<string | null>(null);
@@ -59,21 +63,42 @@ export function AvailabilityFormModal({ visible, onClose, onSaved }: { visible: 
   useEffect(() => {
     if (!visible) return;
     setType('trabajo');
-    setDayOfWeek(0);
+    setSelectedDays([0]);
     setStart('');
     setEnd('');
     setError(null);
   }, [visible]);
+
+  const toggleDay = (i: number) => {
+    setSelectedDays((prev) => (prev.includes(i) ? prev.filter((d) => d !== i) : [...prev, i].sort()));
+  };
+
+  const allDaysSelected = selectedDays.length === DAYS.length;
+  const toggleAllDays = () => {
+    setSelectedDays(allDaysSelected ? [] : DAYS.map((_, i) => i));
+  };
 
   const submit = async () => {
     if (!start || !end) {
       setError('Completa desde y hasta.');
       return;
     }
+    if (selectedDays.length === 0) {
+      setError('Elige al menos un día.');
+      return;
+    }
     setError(null);
     setLoading(true);
     try {
-      await availabilityApi.create({ type, day_of_week: dayOfWeek, start: `${start}:00`, end: `${end}:00` });
+      // Un POST por día seleccionado — el backend solo acepta un
+      // day_of_week por bloque (ver app/routers/availability.py), así que
+      // "varios días en un llenado" se resuelve aquí, no ahí: mismo tipo y
+      // mismo rango de horas, un bloque real por cada día marcado.
+      await Promise.all(
+        selectedDays.map((day_of_week) =>
+          availabilityApi.create({ type, day_of_week, start: `${start}:00`, end: `${end}:00` })
+        )
+      );
       onSaved();
     } catch (err) {
       setError(apiErrorMessage(err));
@@ -98,13 +123,24 @@ export function AvailabilityFormModal({ visible, onClose, onSaved }: { visible: 
             ))}
           </View>
 
-          <Text style={styles.fieldLabel}>Día</Text>
+          <Text style={styles.fieldLabel}>Días (puedes elegir varios)</Text>
           <View style={styles.choiceRow}>
             {DAYS.map((d, i) => (
-              <Pressable key={d} onPress={() => setDayOfWeek(i)} style={styles.pillWrap}>
-                <Pill label={d} fg={dayOfWeek === i ? color.accentInk : color.muted} bg={dayOfWeek === i ? color.accent : color.surfaceAlt} />
+              <Pressable key={d} onPress={() => toggleDay(i)} style={styles.pillWrap}>
+                <Pill
+                  label={d}
+                  fg={selectedDays.includes(i) ? color.accentInk : color.muted}
+                  bg={selectedDays.includes(i) ? color.accent : color.surfaceAlt}
+                />
               </Pressable>
             ))}
+            <Pressable onPress={toggleAllDays} style={styles.pillWrap}>
+              <Pill
+                label={allDaysSelected ? 'Ninguno' : 'Todos'}
+                fg={allDaysSelected ? color.accentInk : color.muted}
+                bg={allDaysSelected ? color.accent : color.surfaceAlt}
+              />
+            </Pressable>
           </View>
 
           <View style={styles.rangeRow}>
@@ -122,10 +158,14 @@ export function AvailabilityFormModal({ visible, onClose, onSaved }: { visible: 
           <View style={styles.actions}>
             <Button label="Cancelar" variant="ghost" onPress={onClose} />
             <View style={{ width: spacing.sm }} />
-            <Button label="Agregar" onPress={submit} loading={loading} />
+            <Button
+              label={selectedDays.length > 1 ? `Agregar (${selectedDays.length} días)` : 'Agregar'}
+              onPress={submit}
+              loading={loading}
+            />
           </View>
+        </View>
       </View>
-    </View>
-  </Modal>
+    </Modal>
   );
 }

@@ -107,6 +107,7 @@ export default function AjustesScreen({ navigation }: Props) {
           label="Horario"
           value={`${user?.wake_time?.slice(0, 5) ?? '—'} – ${user?.sleep_time?.slice(0, 5) ?? '—'}`}
           last
+          centered
         />
       </Card>
 
@@ -181,7 +182,19 @@ export default function AjustesScreen({ navigation }: Props) {
   );
 }
 
-function Row({ icon, label, value, last }: { icon: keyof typeof Ionicons.glyphMap; label: string; value: string; last?: boolean }) {
+function Row({
+  icon,
+  label,
+  value,
+  last,
+  centered,
+}: {
+  icon: keyof typeof Ionicons.glyphMap;
+  label: string;
+  value: string;
+  last?: boolean;
+  centered?: boolean;
+}) {
   const { color } = useTheme();
   const styles = React.useMemo(
     () =>
@@ -205,6 +218,9 @@ function Row({ icon, label, value, last }: { icon: keyof typeof Ionicons.glyphMa
         },
         rowLabel: { ...type.caption, color: color.muted, textTransform: 'uppercase' },
         rowValue: { ...type.bodyStrong, color: color.ink, marginTop: 2 },
+        rowTextWrapCentered: { flex: 1, alignItems: 'center' },
+        rowLabelCentered: { textAlign: 'center' },
+        rowValueCentered: { textAlign: 'center' },
       }),
     [color]
   );
@@ -213,9 +229,12 @@ function Row({ icon, label, value, last }: { icon: keyof typeof Ionicons.glyphMa
       <View style={styles.rowIconCircle}>
         <Ionicons name={icon} size={15} color={color.accent} />
       </View>
-      <View>
-        <Text style={styles.rowLabel}>{label}</Text>
-        <Text style={styles.rowValue}>{value}</Text>
+      {/* "Horario" (pedido por Daniel) se centra en el espacio que queda
+      junto al ícono, en vez de quedar pegado a la izquierda justo después
+      de él — el resto de filas (ej. "Zona horaria") sigue igual. */}
+      <View style={centered ? styles.rowTextWrapCentered : undefined}>
+        <Text style={[styles.rowLabel, centered && styles.rowLabelCentered]}>{label}</Text>
+        <Text style={[styles.rowValue, centered && styles.rowValueCentered]}>{value}</Text>
       </View>
     </View>
   );
