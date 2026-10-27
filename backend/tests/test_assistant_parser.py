@@ -76,3 +76,47 @@ def test_parser_is_accent_insensitive():
     with_accent = parse("Organiza mi día", TODAY)
     without_accent = parse("organiza mi dia", TODAY)
     assert with_accent.action == without_accent.action == "replan_day"
+
+
+def test_importa_mi_horario():
+    intent = parse("Importa mi horario: trabajo de 9 a 6 lunes a viernes", TODAY)
+    assert intent.action == "import_schedule"
+
+
+def test_agrega_mi_horario_tambien_dispara_import_schedule():
+    intent = parse("Agrega mi horario completo por favor", TODAY)
+    assert intent.action == "import_schedule"
+
+
+def test_importar_horario_gana_sobre_reorganiza_si_ambas_palabras_aparecen():
+    """Un mensaje como 'importa mi horario y reorganiza mi semana' debe
+    leerse como importación, no como un ajuste sobre lo ya cargado — ver
+    el comentario en parser.py sobre el orden de estas dos reglas."""
+    intent = parse("Importa mi horario y reorganiza mi semana con eso", TODAY)
+    assert intent.action == "import_schedule"
+
+
+def test_horario_pegado_sin_decir_la_palabra_horario_dispara_import_schedule():
+    """Reporte real: un usuario pidió 'ayúdame a planificar mis semanas'
+    y pegó su horario completo (escuela lunes a sábado con horas, gimnasio
+    ciertos días) sin decir la palabra "horario" ni usar un verbo como
+    importa/agrega — el motor de reglas debe reconocer esto igual que un
+    mensaje explícito, por la heurística de _looks_like_schedule_dump."""
+    intent = parse(
+        "Hola me podrias ayudar a planificar mis semanas? "
+        "Lunes: Escuela de 9:30 am - 2:35 pm "
+        "Martes: Escuela de 7:00 am - 2:00 pm "
+        "Miércoles: Escuela de 9:35 am - 3:00 pm "
+        "Voy al gym los días lunes, martes y miércoles",
+        TODAY,
+    )
+    assert intent.action == "import_schedule"
+
+
+def test_dos_dias_sin_hora_no_dispara_import_schedule():
+    """La heurística exige día+hora concretos — mencionar dos días de la
+    semana sin ninguna hora no debe secuestrar mensajes normales de
+    reorganización, como 'reorganiza mi lunes y martes que tengo mucho
+    trabajo'."""
+    intent = parse("Reorganiza mi lunes y martes que tengo mucho trabajo", TODAY)
+    assert intent.action != "import_schedule"

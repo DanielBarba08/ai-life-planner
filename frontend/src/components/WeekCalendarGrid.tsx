@@ -1,3 +1,4 @@
+import { Ionicons } from '@expo/vector-icons';
 import React from 'react';
 import { ScrollView, StyleSheet, Text, View } from 'react-native';
 
@@ -25,17 +26,22 @@ function hhmmToMinutes(hhmm: string): number {
  * de disponibilidad, solo source_type ("event" | "task"). Sirve para
  * pintar comida/aseo/descanso distinto del resto de bloques fijos, que es
  * justo lo que Daniel pidió poder ver de un vistazo en el calendario.
+ *
+ * Exportado (junto con classifyBlock/kindStyle/kindIcon) para que
+ * MiSemanaScreen.tsx pueda pintar la misma clasificación en la vista de
+ * "Día" (lista de un solo día con checks) sin duplicar esta lógica — una
+ * sola fuente de verdad para qué color/ícono le toca a cada tipo de bloque.
  */
-type BlockKind = 'meal' | 'hygiene' | 'rest' | 'task' | 'event';
+export type BlockKind = 'meal' | 'hygiene' | 'rest' | 'task' | 'event';
 
-function classifyBlock(b: PlanBlock): BlockKind {
+export function classifyBlock(b: PlanBlock): BlockKind {
   if (b.title.startsWith('Comida')) return 'meal';
   if (b.title.startsWith('Aseo')) return 'hygiene';
   if (b.title.startsWith('Descanso')) return 'rest';
   return b.source_type === 'task' ? 'task' : 'event';
 }
 
-function kindStyle(kind: BlockKind, color: ColorTokens): { bg: string; fg: string; border: string } {
+export function kindStyle(kind: BlockKind, color: ColorTokens): { bg: string; fg: string; border: string } {
   switch (kind) {
     case 'meal':
       return { bg: color.goodSoft, fg: color.good, border: color.good };
@@ -47,6 +53,23 @@ function kindStyle(kind: BlockKind, color: ColorTokens): { bg: string; fg: strin
       return { bg: color.accentSoft, fg: color.accentDark, border: color.accent };
     default:
       return { bg: color.surfaceAlt, fg: color.muted, border: color.line };
+  }
+}
+
+/** Ícono por tipo de bloque — mismo criterio de clasificación que kindStyle,
+ * para la lista de un solo día de MiSemanaScreen.tsx (ver DayBlockList). */
+export function kindIcon(kind: BlockKind): keyof typeof Ionicons.glyphMap {
+  switch (kind) {
+    case 'meal':
+      return 'restaurant-outline';
+    case 'hygiene':
+      return 'water-outline';
+    case 'rest':
+      return 'moon-outline';
+    case 'task':
+      return 'checkmark-circle-outline';
+    default:
+      return 'calendar-outline';
   }
 }
 

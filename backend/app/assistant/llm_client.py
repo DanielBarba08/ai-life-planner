@@ -33,14 +33,15 @@ import anthropic
 from app.assistant.intents import Intent
 from app.config import get_settings
 
-_SYSTEM_TEMPLATE = """Eres el clasificador de intención del asistente conversacional de AI Life Planner, una app de productividad personal. Tu único trabajo es clasificar el mensaje del usuario en UNA de seis acciones, usando la herramienta classify_intent — nunca respondas con texto libre, nunca inventes datos (tareas, títulos, fechas) que el usuario no mencionó.
+_SYSTEM_TEMPLATE = """Eres el clasificador de intención del asistente conversacional de AI Life Planner, una app de productividad personal. Tu único trabajo es clasificar el mensaje del usuario en UNA de siete acciones, usando la herramienta classify_intent — nunca respondas con texto libre, nunca inventes datos (tareas, títulos, fechas) que el usuario no mencionó.
 
-Las seis acciones:
+Las siete acciones:
 
 - whats_next: el usuario pregunta qué debería hacer ahora mismo o a continuación, sin pedir que se cambie nada del plan. Ej: "¿qué hago ahora?", "¿qué sigue?", "dime qué toca".
-- optimize_day: el usuario pide que se arme/genere su plan del día por primera vez (aún no tiene uno, o quiere uno completamente nuevo desde cero). Ej: "optimiza mi día", "arma mi agenda de hoy", "planifica mi día".
-- replan_day: el usuario quiere REORGANIZAR lo que ya está planeado o lo que queda del día — no un plan nuevo desde cero, sino ajustar el resto de hoy. Dispara con: (a) pedir reorganizar/reprogramar el día, la tarde, la mañana o la agenda ("reorganiza mi tarde", "reprograma lo que me queda"); (b) mencionar tareas que no terminó en un día anterior ("no terminé las tareas de ayer", "no acabé el proyecto"); (c) expresar cansancio/fatiga/agotamiento y pedir (implícita o explícitamente) que se ajuste lo que queda del día en torno a eso.
+- optimize_day: el usuario pide que se arme/genere su plan del día por primera vez (aún no tiene uno, o quiere uno completamente nuevo desde cero), usando datos que YA existen en la app (tareas, disponibilidad, eventos ya cargados). Ej: "optimiza mi día", "arma mi agenda de hoy", "planifica mi día". IMPORTANTE: si el mensaje también describe bloques concretos de horario nuevos (días y horas de escuela, trabajo, gimnasio, comidas, etc.) que el usuario quiere que se agreguen, eso NO es optimize_day aunque use verbos como "planificar", "organizar" o "ayúdame a armar mi semana" — es import_schedule (ver abajo). optimize_day es solo para cuando NO hay datos nuevos de horario en el mensaje, solo la petición de generar el plan con lo que ya está cargado.
+- replan_day: el usuario quiere REORGANIZAR lo que ya está planeado o lo que queda del día — no un plan nuevo desde cero, sino ajustar el resto de hoy. Dispara con: (a) pedir reorganizar/reprogramar el día, la tarde, la mañana o la agenda ("reorganiza mi tarde", "reprograma lo que me queda"); (b) mencionar tareas que no terminó en un día anterior ("no terminé las tareas de ayer", "no acabé el proyecto"); (c) expresar cansancio/fatiga/agotamiento y pedir (implícita o explícitamente) que se ajuste lo que queda del día en torno a eso. Misma salvedad que optimize_day: si el mensaje trae datos nuevos de horario para agregar, es import_schedule, no replan_day.
 - create_goal: el usuario expresa el deseo de empezar a hacer algo de forma recurrente o con un horizonte de tiempo, típicamente empezando con "quiero" + un verbo de actividad (entrenar, estudiar, leer, aprender, meditar, correr, practicar, etc.). Ej: "quiero entrenar tres veces esta semana", "quiero leer más este mes".
+- import_schedule: el usuario pega o describe su horario (uno o más compromisos recurrentes con días/horas — trabajo, escuela, comidas, gimnasio — y/o eventos con fecha) y quiere que la app lo agregue automáticamente, en vez de solo preguntar o pedir un ajuste puntual sobre algo que ya existe. PRIORIDAD: esta clasificación gana sobre optimize_day y replan_day siempre que el mensaje incluya dos o más bloques concretos de día+hora, sin importar qué verbo haya usado el usuario para pedirlo (planificar, organizar, armar, ayudar) ni si literalmente dice la palabra "horario". Señal típica: menciona explícitamente "importar/cargar/subir/agregar mi horario", O describe varios compromisos con días y horas de un jalón (ej. "lunes escuela 9 a 2, martes escuela 7 a 2, ... gimnasio lunes miércoles y viernes"). Ej: "importa mi horario: trabajo de 9 a 6 lunes a viernes, gimnasio martes y jueves 7pm", "este es mi horario: ...", "ayúdame a planificar mi semana: lunes escuela de 9:30 a 2:35, martes escuela de 7 a 2, ...".
 - clarify: el usuario menciona una fecha límite o cambio sobre una tarea existente pero NO identifica cuál tarea por su nombre — nunca adivines a qué tarea se refiere. Ej: "tengo que terminar este proyecto mañana" (sin decir cuál proyecto/tarea).
 - unrecognized: cualquier otro mensaje que no encaje claramente en las anteriores, incluyendo temas no relacionados con productividad/planificación (chistes, charla casual, preguntas generales).
 
@@ -53,13 +54,21 @@ Hoy es {today}. No necesitas calcular fechas — el sistema ya resuelve "hoy" de
 
 _TOOL = {
     "name": "classify_intent",
-    "description": "Clasifica el mensaje del usuario en una de las seis acciones que el asistente puede realizar sobre datos reales del usuario.",
+    "description": "Clasifica el mensaje del usuario en una de las siete acciones que el asistente puede realizar sobre datos reales del usuario.",
     "input_schema": {
         "type": "object",
         "properties": {
             "action": {
                 "type": "string",
-                "enum": ["whats_next", "optimize_day", "replan_day", "create_goal", "clarify", "unrecognized"],
+                "enum": [
+                    "whats_next",
+                    "optimize_day",
+                    "replan_day",
+                    "create_goal",
+                    "import_schedule",
+                    "clarify",
+                    "unrecognized",
+                ],
                 "description": "La acción clasificada.",
             },
             "note": {
@@ -116,6 +125,7 @@ def classify_intent(text: str, today: date_type) -> Intent:
         "optimize_day",
         "replan_day",
         "create_goal",
+        "import_schedule",
         "clarify",
         "unrecognized",
     ):

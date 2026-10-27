@@ -32,6 +32,21 @@ export function shortWeekdayLabel(iso: string): string {
   return s.charAt(0).toUpperCase() + s.slice(1);
 }
 
+/** Solo el nombre corto del día ("Lun", sin número ni punto) — para el
+ * selector de días de "Mi semana" (ver MiSemanaScreen.tsx), donde el
+ * número va aparte en su propia línea. */
+export function weekdayAbbr(iso: string): string {
+  const [y, m, d] = iso.split('-').map(Number);
+  const date = new Date(y, m - 1, d);
+  const s = date.toLocaleDateString('es-MX', { weekday: 'short' }).replace(/\.$/, '');
+  return s.charAt(0).toUpperCase() + s.slice(1);
+}
+
+/** Día del mes como número ("2026-09-16" → 16) — pareja de weekdayAbbr. */
+export function dayOfMonth(iso: string): number {
+  return Number(iso.split('-')[2]);
+}
+
 /** Combina una fecha ISO ("2026-09-14") y una hora "HH:MM" en un datetime
  * naive ("2026-09-14T18:00:00") — el mismo formato sin zona horaria que ya
  * usa el resto de la app para horas de pared (ver wallClockTime). */

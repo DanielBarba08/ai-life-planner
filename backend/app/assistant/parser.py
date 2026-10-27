@@ -47,6 +47,23 @@ def _normalize(text: str) -> str:
 _FATIGUE_WORDS = ("cansad", "agotad", "exhaust")
 _GOAL_TRIGGER_WORDS = ("entrenar", "estudiar", "leer", "aprender", "meditar", "correr", "practicar")
 
+_DAY_NAME_WORDS = ("lunes", "martes", "miercoles", "jueves", "viernes", "sabado", "domingo")
+_TIME_PATTERN = re.compile(r"\b\d{1,2}(:\d{2})?\s*(am|pm)\b|\b\d{1,2}:\d{2}\b")
+
+
+def _looks_like_schedule_dump(norm: str) -> bool:
+    """Detecta un mensaje que describe un horario aunque el usuario nunca
+    diga la palabra "horario" — ej. "ayúdame a planificar mi semana:
+    lunes escuela 9 a 2, martes ...". Señal: al menos dos días de la
+    semana mencionados junto con al menos una hora concreta (am/pm o
+    HH:MM). Es deliberadamente más permisivo que la regla de abajo
+    (que sí exige "horario" + un verbo como importa/agrega) porque este
+    es exactamente el tipo de mensaje que el clasificador con LLM debe
+    reconocer como import_schedule y que el motor de reglas, como piso
+    de resiliencia sin red, también debe cubrir."""
+    day_matches = sum(1 for d in _DAY_NAME_WORDS if re.search(rf"\b{d}\b", norm))
+    return day_matches >= 2 and bool(_TIME_PATTERN.search(norm))
+
 
 def parse(text: str, today: date_type) -> Intent:
     try:
@@ -71,6 +88,23 @@ def parse_rule_based(text: str, today: date_type) -> Intent:
     # automáticas de hoy; lo único que hace falta es replanificar.
     if re.search(r"\bno\s+(termine|termino|acabe|acabo)\b", norm):
         return Intent(action="replan_day", target_date=today, note="tareas_previas_incompletas")
+
+    # "Importa mi horario" / "agrega mi horario completo" / "carga mi
+    # horario" — el usuario está pegando/describiendo su horario para que
+    # se convierta en bloques de disponibilidad y eventos reales, no
+    # pidiendo un ajuste puntual sobre lo que ya existe. Va antes de
+    # "organiza/reorganiza" y "optimiza/arma/planifica" a propósito: un
+    # mensaje como "importa mi horario y reorganiza mi semana" debe
+    # leerse como importación, no como reorganización de lo ya cargado —
+    # y "ayúdame a planificar mi semana: lunes escuela 9 a 2, martes..."
+    # (sin decir la palabra "horario" en ningún lado) tampoco debe leerse
+    # como optimize_day solo porque usó el verbo "planificar": lo que
+    # sigue son datos concretos de horario que hay que agregar, no una
+    # petición de armar el día con lo que ya existe.
+    if (re.search(r"\b(importa|carga|sube|agrega)\b", norm) and "horario" in norm) or _looks_like_schedule_dump(
+        norm
+    ):
+        return Intent(action="import_schedule")
 
     # "Organiza mi tarde" / "reorganiza mi día, estoy muy cansado"
     if re.search(r"\b(organiza|reorganiza|reprograma)\b", norm) and re.search(

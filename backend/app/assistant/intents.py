@@ -18,6 +18,7 @@ IntentAction = Literal[
     "optimize_day",
     "replan_day",
     "create_goal",
+    "import_schedule",
     "clarify",
     "unrecognized",
 ]

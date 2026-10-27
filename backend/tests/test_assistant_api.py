@@ -89,3 +89,74 @@ def test_assistant_requires_auth(client):
 def test_assistant_message_cannot_be_empty(client, auth_headers):
     resp = client.post("/v1/assistant/message", json={"message": ""}, headers=auth_headers)
     assert resp.status_code == 422
+
+
+def test_import_schedule_sin_llm_configurado_no_inventa_nada(client, auth_headers):
+    """Sin extractor disponible (el default de la suite, ver conftest.py),
+    el asistente debe ser honesto en vez de inventar una extracción."""
+    resp = client.post(
+        "/v1/assistant/message",
+        json={"message": "Importa mi horario: trabajo de 9 a 6 lunes a viernes"},
+        headers=auth_headers,
+    )
+    assert resp.status_code == 200
+    body = resp.json()
+    assert body["action"] == "import_schedule"
+    assert body["pending_import"] is None
+    assert "claude" in body["reply"].lower() or "api key" in body["reply"].lower()
+
+
+def test_import_schedule_preview_then_confirm_creates_real_data(client, auth_headers, monkeypatch):
+    from datetime import date
+
+    from app.assistant import schedule_extractor
+    from app.schemas.assistant import ScheduleItemAvailability, ScheduleItemEvent
+
+    fake_items = [
+        ScheduleItemAvailability(type="trabajo", days=[0, 1, 2, 3, 4], start="09:00", end="18:00", label="Trabajo"),
+        ScheduleItemEvent(date=date(2026, 9, 25), start="10:00", end="11:00", label="Junta con el equipo"),
+    ]
+    monkeypatch.setattr(schedule_extractor, "extract_schedule", lambda text, today: fake_items)
+
+    preview = client.post(
+        "/v1/assistant/message",
+        json={"message": "Importa mi horario: trabajo de 9 a 6 lunes a viernes, junta el 25 de 10 a 11"},
+        headers=auth_headers,
+    )
+    assert preview.status_code == 200
+    body = preview.json()
+    assert body["action"] == "import_schedule"
+    assert body["pending_import"] is not None
+    assert len(body["pending_import"]) == 2
+    assert "Trabajo" in body["reply"]
+
+    # nada se guardó todavía solo por pedir la vista previa
+    assert client.get("/v1/availability", headers=auth_headers).json() == []
+    assert client.get("/v1/events", headers=auth_headers).json() == []
+
+    confirm = client.post(
+        "/v1/assistant/schedule/import", json={"items": body["pending_import"]}, headers=auth_headers
+    )
+    assert confirm.status_code == 200, confirm.text
+    confirmed = confirm.json()
+    assert confirmed["availability_created"] == 5  # un bloque por cada día lun-vie
+    assert confirmed["events_created"] == 1
+
+    availability = client.get("/v1/availability", headers=auth_headers).json()
+    assert len(availability) == 5
+    assert {a["day_of_week"] for a in availability} == {0, 1, 2, 3, 4}
+    assert all(a["type"] == "trabajo" for a in availability)
+
+    events = client.get("/v1/events", headers=auth_headers).json()
+    assert len(events) == 1
+    assert events[0]["title"] == "Junta con el equipo"
+
+
+def test_import_schedule_requires_auth(client):
+    resp = client.post("/v1/assistant/schedule/import", json={"items": []})
+    assert resp.status_code == 401
+
+
+def test_import_schedule_rejects_empty_items(client, auth_headers):
+    resp = client.post("/v1/assistant/schedule/import", json={"items": []}, headers=auth_headers)
+    assert resp.status_code == 422

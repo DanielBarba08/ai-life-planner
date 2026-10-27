@@ -3,7 +3,7 @@ from fastapi.testclient import TestClient
 from sqlalchemy import create_engine
 from sqlalchemy.orm import sessionmaker
 
-from app.assistant import llm_client
+from app.assistant import llm_client, schedule_extractor
 from app.database import Base, get_db
 from app.main import app
 from app.models.evidence import EvidenceLevel, EvidenceSource
@@ -30,6 +30,19 @@ def _disable_llm_assistant(monkeypatch):
         raise llm_client.LLMUnavailable("deshabilitado en la suite de tests por defecto")
 
     monkeypatch.setattr(llm_client, "classify_intent", _unavailable)
+
+
+@pytest.fixture(autouse=True)
+def _disable_schedule_extractor(monkeypatch):
+    """Mismo criterio que `_disable_llm_assistant` de arriba, pero para la
+    segunda llamada a Claude que arma action=import_schedule
+    (app/assistant/schedule_extractor.py) — se prueba aparte, con el
+    cliente de Anthropic mockeado, en tests/test_schedule_extractor.py."""
+
+    def _unavailable(text, today):
+        raise llm_client.LLMUnavailable("deshabilitado en la suite de tests por defecto")
+
+    monkeypatch.setattr(schedule_extractor, "extract_schedule", _unavailable)
 
 
 @pytest.fixture()

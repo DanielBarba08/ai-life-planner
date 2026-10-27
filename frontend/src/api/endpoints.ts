@@ -18,6 +18,8 @@ import type {
   HabitStatus,
   HabitWeek,
   Priority,
+  ScheduleImportResult,
+  ScheduleItem,
   Streak,
   SuggestedSession,
   Task,
@@ -151,6 +153,8 @@ export const explanationsApi = {
 // -- assistant -------------------------------------------------------------------
 export const assistantApi = {
   send: (message: string) => api.post<AssistantResponse>('/v1/assistant/message', { message }).then((r) => r.data),
+  importSchedule: (items: ScheduleItem[]) =>
+    api.post<ScheduleImportResult>('/v1/assistant/schedule/import', { items }).then((r) => r.data),
 };
 
 export type { Conflict, EvidenceLevel, UnplacedItem };

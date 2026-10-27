@@ -199,11 +199,39 @@ export interface WhatsNext {
   block_id: string | null;
 }
 
+export interface ScheduleItemAvailability {
+  kind: 'availability';
+  label: string;
+  type: AvailabilityType;
+  days: number[]; // 0 = lunes
+  start: string; // "HH:MM:SS"
+  end: string;
+}
+
+export interface ScheduleItemEvent {
+  kind: 'event';
+  label: string;
+  date: string; // "YYYY-MM-DD"
+  start: string; // "HH:MM:SS"
+  end: string;
+}
+
+export type ScheduleItem = ScheduleItemAvailability | ScheduleItemEvent;
+
 export interface AssistantResponse {
   action: string;
   reply: string;
   day_plan: DayPlan | null;
   goal: Goal | null;
+  // Solo viene lleno cuando action=import_schedule y sí se logró extraer
+  // algo — es una propuesta, todavía no se guardó nada (ver
+  // AsistenteScreen.tsx, que la muestra con botones de confirmar/cancelar).
+  pending_import: ScheduleItem[] | null;
+}
+
+export interface ScheduleImportResult {
+  availability_created: number;
+  events_created: number;
 }
 
 export interface ApiError {
