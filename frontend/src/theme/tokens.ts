@@ -1,9 +1,10 @@
 /**
- * Sistema de diseño de la app — paleta azul/blanco pedida por Daniel
- * (18 sept: "colores de tonos azules con blanco... atractiva al público
- * ... pero que al mismo tiempo se vea profesional"), con tipografía real
- * cargada vía @expo-google-fonts (ver App.tsx: useFonts) en vez de las
- * fuentes del sistema que se usaron en la primera versión del Módulo 5.
+ * Sistema de diseño de la app — paleta verde-azulado (teal) + navy oscuro
+ * pedida por Daniel (28 sept: rediseño completo de la app a partir de un
+ * mockup de referencia con acentos teal/verde, menú lateral oscuro y
+ * tarjetas blancas), con tipografía real cargada vía @expo-google-fonts
+ * (ver App.tsx: useFonts) en vez de las fuentes del sistema que se usaron
+ * en la primera versión del Módulo 5.
  *
  * Tema oscuro completo (pedido por Daniel como mejora de pulido, no parte
  * del MVP original): DOS paletas con las mismas claves (`lightColor` /
@@ -48,20 +49,31 @@ export interface ColorTokens {
   streakSoft: string;
   heroGradientStart: string;
   heroGradientEnd: string;
+
+  // Menú lateral (ver components/Sidebar.tsx) — chrome de marca SIEMPRE
+  // oscuro/navy, igual en ambas paletas (mismo patrón que heroGradient*
+  // abajo): el mockup de Daniel muestra una barra lateral oscura fija, no
+  // una que cambie con el tema claro/oscuro de la app.
+  sidebarBg: string;
+  sidebarBorder: string;
+  sidebarInk: string;
+  sidebarMuted: string;
+  sidebarActiveBg: string;
+  sidebarAccent: string;
 }
 
 export const lightColor: ColorTokens = {
-  bg: '#F5F8FF',
+  bg: '#F4FAF9',
   surface: '#FFFFFF',
-  surfaceAlt: '#EAF1FE',
-  line: '#DCE6F7',
-  ink: '#0F1E3D',
-  muted: '#5C6B8A',
+  surfaceAlt: '#E9F6F3',
+  line: '#DCEEEA',
+  ink: '#0E1B2E',
+  muted: '#5C7069',
 
-  accent: '#1E4FD8', // azul primario — acción principal
-  accentDark: '#15369C', // hover/pressed y texto sobre accentSoft
+  accent: '#0D9488', // teal primario — acción principal
+  accentDark: '#0F766E', // hover/pressed y texto sobre accentSoft
   accentInk: '#FFFFFF',
-  accentSoft: '#E3ECFE',
+  accentSoft: '#DAF5F0',
 
   // Semánticos: se mantienen distintos del azul a propósito — son señales
   // de significado (nivel de evidencia, confianza, conflictos), no
@@ -88,22 +100,31 @@ export const lightColor: ColorTokens = {
   // vivo se lee bien tanto sobre fondo claro como oscuro (mismo patrón
   // que las tarjetas de color de Duolingo), así que no hace falta una
   // segunda pareja de valores solo para el modo oscuro.
-  heroGradientStart: '#1E4FD8',
-  heroGradientEnd: '#3E6BEF',
+  heroGradientStart: '#0D9488',
+  heroGradientEnd: '#14B8A6',
+
+  // Menú lateral — mismo navy oscuro en ambas paletas (ver el comentario
+  // de ColorTokens arriba).
+  sidebarBg: '#0B1220',
+  sidebarBorder: '#1C2A3A',
+  sidebarInk: '#F2F7F6',
+  sidebarMuted: '#8CA3AE',
+  sidebarActiveBg: 'rgba(45,212,191,0.16)',
+  sidebarAccent: '#2DD4BF',
 };
 
 export const darkColor: ColorTokens = {
-  bg: '#0A0F1E',
-  surface: '#131B2E',
-  surfaceAlt: '#1B2540',
-  line: '#28324D',
-  ink: '#EAF0FF',
-  muted: '#8C9BC4',
+  bg: '#0A1412',
+  surface: '#101E1B',
+  surfaceAlt: '#16281F',
+  line: '#223A32',
+  ink: '#EAF7F4',
+  muted: '#8CA3AE',
 
-  accent: '#5C87FF', // más claro que el azul primario del modo claro — el saturado original pierde contraste sobre fondo oscuro
-  accentDark: '#B9CBFF', // texto/ícono sobre accentSoft oscuro — el "dark" de la pareja ahora es el más CLARO de los dos, a propósito
-  accentInk: '#FFFFFF',
-  accentSoft: '#1E2C52',
+  accent: '#2DD4BF', // más claro que el teal primario del modo claro — el saturado original pierde contraste sobre fondo oscuro
+  accentDark: '#99F6E4', // texto/ícono sobre accentSoft oscuro — el "dark" de la pareja ahora es el más CLARO de los dos, a propósito
+  accentInk: '#06201C',
+  accentSoft: '#113B38',
 
   good: '#4ADE80',
   goodSoft: '#123422',
@@ -117,8 +138,15 @@ export const darkColor: ColorTokens = {
   streak: '#FF9A4D',
   streakSoft: '#3A2410',
 
-  heroGradientStart: '#1E4FD8',
-  heroGradientEnd: '#3E6BEF',
+  heroGradientStart: '#0D9488',
+  heroGradientEnd: '#14B8A6',
+
+  sidebarBg: '#0B1220',
+  sidebarBorder: '#1C2A3A',
+  sidebarInk: '#F2F7F6',
+  sidebarMuted: '#8CA3AE',
+  sidebarActiveBg: 'rgba(45,212,191,0.16)',
+  sidebarAccent: '#2DD4BF',
 };
 
 export const spacing = {

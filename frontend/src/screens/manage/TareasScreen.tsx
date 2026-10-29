@@ -42,6 +42,19 @@ export default function TareasScreen({ navigation }: Props) {
     [color]
   );
 
+  // Chip de color por prioridad (pedido junto con el rediseño general: "chips
+  // de color por tipo de actividad" en Mi día y Tareas) — reutiliza los
+  // mismos tokens semánticos que ya usa el resto de la app (riesgo/alerta),
+  // antes esto era solo texto plano ("prioridad alta").
+  const priorityColor: Record<Task['priority'], { fg: string; bg: string }> = React.useMemo(
+    () => ({
+      alta: { fg: color.risk, bg: color.riskSoft },
+      media: { fg: color.warn, bg: color.warnSoft },
+      baja: { fg: color.muted, bg: color.surfaceAlt },
+    }),
+    [color]
+  );
+
   const styles = React.useMemo(
     () =>
       StyleSheet.create({
@@ -128,7 +141,10 @@ export default function TareasScreen({ navigation }: Props) {
               </View>
               <View style={styles.taskMetaRow}>
                 <Pill label={t.status} fg={statusColor[t.status].fg} bg={statusColor[t.status].bg} />
-                <Text style={styles.taskMeta}>{t.duration_est_min} min · prioridad {t.priority}</Text>
+                <View style={{ marginLeft: spacing.sm }}>
+                  <Pill label={t.priority} fg={priorityColor[t.priority].fg} bg={priorityColor[t.priority].bg} />
+                </View>
+                <Text style={styles.taskMeta}>{t.duration_est_min} min</Text>
               </View>
               {t.deadline ? (
                 <Text style={styles.taskDeadline}>

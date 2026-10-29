@@ -30,7 +30,7 @@ const LABELS: Record<keyof MainTabParamList, string> = {
   Ajustes: 'Ajustes',
 };
 
-export default function MainTabs() {
+export default function MainTabs({ hideTabBar }: { hideTabBar?: boolean } = {}) {
   const { color } = useTheme();
 
   return (
@@ -39,7 +39,14 @@ export default function MainTabs() {
         headerShown: false,
         tabBarActiveTintColor: color.accent,
         tabBarInactiveTintColor: color.muted,
-        tabBarStyle: { backgroundColor: color.surface, borderTopColor: color.line, height: 62, paddingBottom: 8, paddingTop: 6 },
+        // hideTabBar: en pantallas anchas la navegación vive en el menú
+        // lateral (ver components/Sidebar.tsx + navigation/RootNavigator.tsx)
+        // — la barra inferior se oculta para no duplicar la navegación,
+        // pero el Tab.Navigator sigue siendo la única fuente de verdad de
+        // qué pantalla está activa, en ambos tamaños.
+        tabBarStyle: hideTabBar
+          ? { display: 'none' }
+          : { backgroundColor: color.surface, borderTopColor: color.line, height: 62, paddingBottom: 8, paddingTop: 6 },
         tabBarLabelStyle: { fontSize: 11 },
         tabBarLabel: LABELS[route.name as keyof MainTabParamList],
         tabBarIcon: ({ color: tint, focused }) => {

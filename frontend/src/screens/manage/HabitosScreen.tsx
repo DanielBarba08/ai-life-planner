@@ -10,6 +10,7 @@ import { BackHeader } from '../../components/BackHeader';
 import { Button } from '../../components/Button';
 import { Card } from '../../components/Card';
 import { HabitFormModal } from '../../components/HabitFormModal';
+import { ProgressRing } from '../../components/ProgressRing';
 import { Screen } from '../../components/Screen';
 import { useTheme } from '../../theme/ThemeContext';
 import { radius, spacing, type } from '../../theme/tokens';
@@ -157,7 +158,8 @@ function HabitCard({ habit, onEdit, onDelete }: { habit: Habit; onEdit: () => vo
               {habit.status === 'pausado' ? ' · pausado' : ''}
             </Text>
           </View>
-          <Pressable onPress={onDelete} hitSlop={8}>
+          <ProgressRing pct={pct} size={44} strokeWidth={5} />
+          <Pressable onPress={onDelete} hitSlop={8} style={{ marginLeft: spacing.sm }}>
             <Ionicons name="trash-outline" size={17} color={color.muted} />
           </Pressable>
         </View>
