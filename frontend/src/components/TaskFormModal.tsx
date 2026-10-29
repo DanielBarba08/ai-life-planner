@@ -8,8 +8,10 @@ import { useTheme } from '../theme/ThemeContext';
 import { radius, spacing, type } from '../theme/tokens';
 import { combineDateTime, splitDateTime } from '../utils/date';
 import { Button } from './Button';
+import { DatePickerField } from './DatePickerField';
 import { Pill } from './Pill';
 import { TextField } from './TextField';
+import { TimeOptionsField } from './TimeOptionsField';
 
 const PRIORITIES: Priority[] = ['baja', 'media', 'alta'];
 const CONCENTRATION: ConcentrationLevel[] = ['baja', 'media', 'alta'];
@@ -179,15 +181,22 @@ export function TaskFormModal({
             ) : null}
 
             <Text style={styles.fieldLabel}>Fecha límite (opcional)</Text>
-            <View style={styles.rangeRow}>
-              <View style={{ flex: 1 }}>
-                <TextField label="Fecha" value={deadlineDate} onChangeText={setDeadlineDate} placeholder="2026-09-20" />
-              </View>
-              <View style={{ width: spacing.sm }} />
-              <View style={{ flex: 1 }}>
-                <TextField label="Hora" value={deadlineTime} onChangeText={setDeadlineTime} placeholder="18:00" />
-              </View>
-            </View>
+            <DatePickerField
+              label="Fecha"
+              value={deadlineDate}
+              onChange={(iso) => {
+                setDeadlineDate(iso);
+                // Hora por defecto al elegir fecha por primera vez — así el
+                // caso normal (poner solo la fecha) no dispara el error de
+                // "falta la hora" de abajo.
+                if (!deadlineTime) setDeadlineTime('18:00');
+              }}
+              onClear={() => {
+                setDeadlineDate('');
+                setDeadlineTime('');
+              }}
+            />
+            {deadlineDate ? <TimeOptionsField label="Hora" value={deadlineTime} onChange={setDeadlineTime} /> : null}
 
             {otherTasks.length > 0 ? (
               <>

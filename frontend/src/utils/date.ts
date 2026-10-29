@@ -69,6 +69,40 @@ export function wallClockTime(iso: string): string {
   return match ? `${match[1]}:${match[2]}` : iso;
 }
 
+/** "Septiembre 2026" — encabezado del selector de fecha (ver DatePickerField.tsx). */
+export function monthYearLabel(year: number, month0: number): string {
+  const d = new Date(year, month0, 1);
+  const s = d.toLocaleDateString('es-MX', { month: 'long', year: 'numeric' });
+  return s.charAt(0).toUpperCase() + s.slice(1);
+}
+
+/** "16 sep 2026" — fecha elegida, formato compacto para mostrar dentro de un campo. */
+export function mediumDateLabel(iso: string): string {
+  const [y, m, d] = iso.split('-').map(Number);
+  const date = new Date(y, m - 1, d);
+  const s = date.toLocaleDateString('es-MX', { day: 'numeric', month: 'short', year: 'numeric' });
+  return s.replace(/\.$/, '').charAt(0).toUpperCase() + s.replace(/\.$/, '').slice(1);
+}
+
+/**
+ * Cuadrícula de un mes para el selector de fecha de clic (ver
+ * DatePickerField.tsx) — 42 casillas (6 semanas, lunes-domingo, como el
+ * resto de la app: ver mondayOfWeek), `null` donde el mes no tiene día y la
+ * fecha ISO "YYYY-MM-DD" donde sí.
+ */
+export function monthGrid(year: number, month0: number): (string | null)[] {
+  const firstWeekday = new Date(year, month0, 1).getDay(); // 0 = domingo
+  const leading = firstWeekday === 0 ? 6 : firstWeekday - 1; // casillas vacías antes del día 1
+  const daysInMonth = new Date(year, month0 + 1, 0).getDate();
+  const cells: (string | null)[] = [];
+  for (let i = 0; i < leading; i++) cells.push(null);
+  for (let day = 1; day <= daysInMonth; day++) {
+    cells.push(`${year}-${String(month0 + 1).padStart(2, '0')}-${String(day).padStart(2, '0')}`);
+  }
+  while (cells.length % 7 !== 0) cells.push(null);
+  return cells;
+}
+
 export function formatDurationMin(min: number): string {
   if (min < 60) return `${min} min`;
   const h = Math.floor(min / 60);
