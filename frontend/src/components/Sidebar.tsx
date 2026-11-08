@@ -17,7 +17,7 @@ export type SidebarDestination =
   | { tab: 'MiDia' }
   | { tab: 'MiSemana' }
   | { tab: 'Asistente' }
-  | { tab: 'Ajustes'; screen?: 'AjustesHome' | 'Tareas' | 'Objetivos' };
+  | { tab: 'Ajustes'; screen?: 'AjustesHome' | 'Tareas' | 'Eventos' | 'Objetivos' | 'Disponibilidad' | 'Habitos' };
 
 interface SidebarItem {
   key: string;
@@ -49,12 +49,36 @@ const ITEMS: SidebarItem[] = [
     matchRoutes: ['Tareas'],
   },
   {
+    key: 'eventos',
+    icon: 'pin-outline',
+    activeIcon: 'pin',
+    label: 'Eventos fijos',
+    dest: { tab: 'Ajustes', screen: 'Eventos' },
+    matchRoutes: ['Eventos'],
+  },
+  {
     key: 'objetivos',
     icon: 'flag-outline',
     activeIcon: 'flag',
     label: 'Objetivos',
     dest: { tab: 'Ajustes', screen: 'Objetivos' },
     matchRoutes: ['Objetivos'],
+  },
+  {
+    key: 'disponibilidad',
+    icon: 'repeat-outline',
+    activeIcon: 'repeat',
+    label: 'Disponibilidad',
+    dest: { tab: 'Ajustes', screen: 'Disponibilidad' },
+    matchRoutes: ['Disponibilidad'],
+  },
+  {
+    key: 'habitos',
+    icon: 'sync-outline',
+    activeIcon: 'sync',
+    label: 'Hábitos',
+    dest: { tab: 'Ajustes', screen: 'Habitos' },
+    matchRoutes: ['Habitos'],
   },
   {
     key: 'asistente',
@@ -70,7 +94,7 @@ const ITEMS: SidebarItem[] = [
     activeIcon: 'settings',
     label: 'Configuración',
     dest: { tab: 'Ajustes', screen: 'AjustesHome' },
-    matchRoutes: ['AjustesHome', 'Eventos', 'Disponibilidad', 'Habitos', 'ComoDecide'],
+    matchRoutes: ['AjustesHome', 'ComoDecide'],
   },
 ];
 

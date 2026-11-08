@@ -24,14 +24,16 @@ const MANAGE_ROWS: ManageRow[] = [
   { icon: 'sync-outline', label: 'Hábitos', hint: 'Metas recurrentes, con progreso real de la semana', screen: 'Habitos' },
 ];
 
-// En pantallas anchas, Tareas y Objetivos ya tienen su propio acceso
-// directo en el menú lateral (ver components/Sidebar.tsx) — mostrarlos
-// aquí también sería redundante, así que se quitan de "Gestionar" ahí.
+// En pantallas anchas los cinco destinos de "Gestionar" ya tienen su
+// propio acceso directo en el menú lateral (ver components/Sidebar.tsx) —
+// mostrarlos aquí también sería redundante, así que toda la sección se
+// quita de Configuración ahí (ver más abajo: manageRows queda vacío y
+// la sección completa no se pinta).
 // En el teléfono el menú lateral no existe (solo la barra inferior: Mi
 // día / Mi semana / Asistente / Ajustes, ver navigation/MainTabs.tsx), así
-// que ahí "Gestionar" sigue siendo su único camino de entrada y se deja
-// completo.
-const WIDE_ONLY_HIDDEN_SCREENS: ManageRow['screen'][] = ['Tareas', 'Objetivos'];
+// que ahí "Gestionar" sigue siendo el único camino de entrada a estas
+// pantallas y se deja completo.
+const WIDE_ONLY_HIDDEN_SCREENS: ManageRow['screen'][] = ['Tareas', 'Eventos', 'Objetivos', 'Disponibilidad', 'Habitos'];
 
 export default function AjustesScreen({ navigation }: Props) {
   const { user, logout } = useAuth();
