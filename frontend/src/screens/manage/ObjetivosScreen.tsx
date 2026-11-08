@@ -10,6 +10,7 @@ import { BackHeader } from '../../components/BackHeader';
 import { Button } from '../../components/Button';
 import { Card } from '../../components/Card';
 import { GoalFormModal } from '../../components/GoalFormModal';
+import { GoalStreakRow } from '../../components/GoalStreakRow';
 import { Pill } from '../../components/Pill';
 import { Screen } from '../../components/Screen';
 import { useTheme } from '../../theme/ThemeContext';
@@ -119,6 +120,7 @@ export default function ObjetivosScreen({ navigation }: Props) {
                 </Pressable>
               </View>
             </Pressable>
+            <GoalStreakRow goal={g} />
           </Card>
         ))
       )}

@@ -87,6 +87,17 @@ export interface Goal {
   created_at: string;
 }
 
+/**
+ * GET/POST /v1/goals/{id}/streak|checkin — misma idea que Streak (arriba)
+ * pero por objetivo, pedido por Daniel para dar seguimiento día con día
+ * a cada meta y mostrar la racha en Mi día.
+ */
+export interface GoalStreak {
+  current_streak: number;
+  checked_in_today: boolean;
+  completed_today: boolean;
+}
+
 export interface Habit {
   id: string;
   title: string;

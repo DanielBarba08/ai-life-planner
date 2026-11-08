@@ -14,6 +14,7 @@ import type {
   Goal,
   GoalHorizon,
   GoalStatus,
+  GoalStreak,
   Habit,
   HabitStatus,
   HabitWeek,
@@ -102,6 +103,9 @@ export const goalsApi = {
   update: (id: string, body: Partial<{ title: string; horizon: GoalHorizon; status: GoalStatus }>) =>
     api.patch<Goal>(`/v1/goals/${id}`, body).then((r) => r.data),
   remove: (id: string) => api.delete(`/v1/goals/${id}`),
+  streak: (id: string) => api.get<GoalStreak>(`/v1/goals/${id}/streak`).then((r) => r.data),
+  checkin: (id: string, completed: boolean) =>
+    api.post<GoalStreak>(`/v1/goals/${id}/checkin`, { completed }).then((r) => r.data),
 };
 
 // -- habits (Fase 5 — hábitos avanzados) --------------------------------------
