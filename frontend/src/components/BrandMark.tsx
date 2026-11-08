@@ -11,7 +11,10 @@ import { radius, spacing } from '../theme/tokens';
  * texto, para que la primera pantalla que alguien ve ya se sienta como un
  * producto pulido y no un formulario genérico. Mismo par de colores que
  * el hero de Mi día (theme/tokens.ts::heroGradient*) para que la identidad
- * visual sea consistente entre la puerta de entrada y la app.
+ * visual sea consistente entre la puerta de entrada y la app. Ícono de
+ * hoja (en vez del sol de la identidad anterior) — el único toque
+ * "botánico" explícito que pidió Daniel en el rediseño de naturaleza,
+ * puesto justo en la primera pantalla que ve cualquiera.
  */
 export function BrandMark() {
   const { color, elevation } = useTheme();
@@ -37,7 +40,7 @@ export function BrandMark() {
       end={{ x: 1, y: 1 }}
       style={[styles.badge, elevation.low]}
     >
-      <Ionicons name="sunny" size={22} color={color.accentInk} />
+      <Ionicons name="leaf" size={22} color={color.accentInk} />
     </LinearGradient>
   );
 }

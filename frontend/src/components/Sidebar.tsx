@@ -157,7 +157,7 @@ export function Sidebar({
     <View style={styles.wrap}>
       <View style={styles.brandRow}>
         <View style={styles.brandMark}>
-          <Ionicons name="sparkles" size={16} color={color.sidebarBg} />
+          <Ionicons name="leaf" size={16} color={color.sidebarBg} />
         </View>
         <Text style={styles.brandText}>LifePlanner</Text>
       </View>
