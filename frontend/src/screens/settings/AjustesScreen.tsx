@@ -9,11 +9,14 @@ import { Card } from '../../components/Card';
 import { Screen } from '../../components/Screen';
 import { radius, spacing, type } from '../../theme/tokens';
 import { useTheme } from '../../theme/ThemeContext';
+import { useIsWideScreen } from '../../utils/layout';
 import type { AjustesStackParamList } from '../../navigation/types';
 
 type Props = NativeStackScreenProps<AjustesStackParamList, 'AjustesHome'>;
 
-const MANAGE_ROWS: { icon: keyof typeof Ionicons.glyphMap; label: string; hint: string; screen: keyof AjustesStackParamList }[] = [
+type ManageRow = { icon: keyof typeof Ionicons.glyphMap; label: string; hint: string; screen: keyof AjustesStackParamList };
+
+const MANAGE_ROWS: ManageRow[] = [
   { icon: 'checkmark-done-outline', label: 'Tareas', hint: 'Crear, editar y borrar', screen: 'Tareas' },
   { icon: 'calendar-outline', label: 'Eventos fijos', hint: 'Lo que ya tienes agendado', screen: 'Eventos' },
   { icon: 'flag-outline', label: 'Objetivos', hint: 'Metas de hoy, la semana o más allá', screen: 'Objetivos' },
@@ -21,9 +24,20 @@ const MANAGE_ROWS: { icon: keyof typeof Ionicons.glyphMap; label: string; hint: 
   { icon: 'sync-outline', label: 'Hábitos', hint: 'Metas recurrentes, con progreso real de la semana', screen: 'Habitos' },
 ];
 
+// En pantallas anchas, Tareas y Objetivos ya tienen su propio acceso
+// directo en el menú lateral (ver components/Sidebar.tsx) — mostrarlos
+// aquí también sería redundante, así que se quitan de "Gestionar" ahí.
+// En el teléfono el menú lateral no existe (solo la barra inferior: Mi
+// día / Mi semana / Asistente / Ajustes, ver navigation/MainTabs.tsx), así
+// que ahí "Gestionar" sigue siendo su único camino de entrada y se deja
+// completo.
+const WIDE_ONLY_HIDDEN_SCREENS: ManageRow['screen'][] = ['Tareas', 'Objetivos'];
+
 export default function AjustesScreen({ navigation }: Props) {
   const { user, logout } = useAuth();
   const { color, mode, setMode } = useTheme();
+  const isWide = useIsWideScreen();
+  const manageRows = isWide ? MANAGE_ROWS.filter((row) => !WIDE_ONLY_HIDDEN_SCREENS.includes(row.screen)) : MANAGE_ROWS;
   const initial = (user?.name || user?.email || '?').trim().charAt(0).toUpperCase();
   const styles = React.useMemo(
     () =>
@@ -110,23 +124,27 @@ export default function AjustesScreen({ navigation }: Props) {
         />
       </Card>
 
-      <Text style={styles.sectionTitle}>Gestionar</Text>
-      <Card style={styles.card}>
-        {MANAGE_ROWS.map((row, i) => (
-          <Pressable key={row.screen} onPress={() => navigation.navigate(row.screen)}>
-            <View style={[styles.manageRow, i === MANAGE_ROWS.length - 1 && styles.manageRowLast]}>
-              <View style={styles.rowIconCircle}>
-                <Ionicons name={row.icon} size={15} color={color.accent} />
-              </View>
-              <View style={{ flex: 1 }}>
-                <Text style={styles.rowValue}>{row.label}</Text>
-                <Text style={styles.manageHint}>{row.hint}</Text>
-              </View>
-              <Ionicons name="chevron-forward" size={16} color={color.muted} />
-            </View>
-          </Pressable>
-        ))}
-      </Card>
+      {manageRows.length > 0 ? (
+        <>
+          <Text style={styles.sectionTitle}>Gestionar</Text>
+          <Card style={styles.card}>
+            {manageRows.map((row, i) => (
+              <Pressable key={row.screen} onPress={() => navigation.navigate(row.screen)}>
+                <View style={[styles.manageRow, i === manageRows.length - 1 && styles.manageRowLast]}>
+                  <View style={styles.rowIconCircle}>
+                    <Ionicons name={row.icon} size={15} color={color.accent} />
+                  </View>
+                  <View style={{ flex: 1 }}>
+                    <Text style={styles.rowValue}>{row.label}</Text>
+                    <Text style={styles.manageHint}>{row.hint}</Text>
+                  </View>
+                  <Ionicons name="chevron-forward" size={16} color={color.muted} />
+                </View>
+              </Pressable>
+            ))}
+          </Card>
+        </>
+      ) : null}
 
       <Pressable onPress={() => navigation.navigate('ComoDecide')}>
         <Card style={styles.card}>
