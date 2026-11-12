@@ -62,6 +62,13 @@ def suggest_sessions(habit: Habit, week_start: date_type, count: int, today: dat
     de esa semana — nunca sugiere un día que ya pasó. Si la semana ya casi
     terminó y no queda ningún día disponible, devuelve una lista vacía en
     vez de amontonar todo en un solo día o proponer algo en el pasado.
+
+    Un día nunca recibe más de una sesión sugerida: si quedan menos días
+    disponibles que `count` (por ejemplo, se pide esto un sábado o
+    domingo, con la semana casi terminada), se sugieren menos de `count`
+    sesiones — máximo una por día — en vez de repetir un mismo día varias
+    veces (bug reportado por Daniel el 8 nov: "se agregan todas las horas
+    en un solo día").
     """
     week_end = week_start + timedelta(days=6)
     first_day = max(week_start, today)
@@ -69,7 +76,7 @@ def suggest_sessions(habit: Habit, week_start: date_type, count: int, today: dat
         return []
 
     available_days = [first_day + timedelta(days=i) for i in range((week_end - first_day).days + 1)]
-    chosen_days = sorted(available_days[i % len(available_days)] for i in range(count))
+    chosen_days = sorted(available_days[: min(count, len(available_days))])
 
     return [
         SuggestedSession(

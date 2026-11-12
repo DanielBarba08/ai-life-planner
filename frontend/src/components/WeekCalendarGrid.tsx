@@ -1,6 +1,6 @@
 import { Ionicons } from '@expo/vector-icons';
 import React from 'react';
-import { ScrollView, StyleSheet, Text, View } from 'react-native';
+import { Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
 
 import type { PlanBlock, WeekDay } from '../api/types';
 import { ColorTokens, radius, spacing, type } from '../theme/tokens';
@@ -81,7 +81,20 @@ export function kindIcon(kind: BlockKind): keyof typeof Ionicons.glyphMap {
  * horizontalmente (solo los 7 días, en un ScrollView horizontal aparte),
  * para poder ubicar la hora de un bloque sin perder de vista la columna.
  */
-export function WeekCalendarGrid({ days, todayIso }: { days: WeekDay[]; todayIso: string }) {
+export function WeekCalendarGrid({
+  days,
+  todayIso,
+  onDeleteTask,
+}: {
+  days: WeekDay[];
+  todayIso: string;
+  /** Borrado manual de una tarea directo desde esta cuadrícula (pedido
+   * por Daniel el 8 nov, "tanto en mi día como en calendario") —
+   * opcional porque este componente también se usa en contextos de solo
+   * lectura; cuando no se pasa, los bloques de tarea no muestran el
+   * ícono de borrar. */
+  onDeleteTask?: (taskId: string, dateIso: string) => void;
+}) {
   const { color } = useTheme();
 
   const { rangeStartMin, rangeEndMin } = React.useMemo(() => {
@@ -152,6 +165,7 @@ export function WeekCalendarGrid({ days, todayIso }: { days: WeekDay[]; todayIso
         },
         blockTitle: { ...type.caption, fontSize: 11 },
         blockTime: { ...type.caption, fontSize: 10, opacity: 0.8 },
+        blockDeleteBtn: { position: 'absolute', top: 1, right: 1, padding: 2 },
       }),
     [color]
   );
@@ -205,6 +219,7 @@ export function WeekCalendarGrid({ days, todayIso }: { days: WeekDay[]; todayIso
                       const height = Math.max(MIN_BLOCK_PX, (e - s) * (HOUR_PX / 60) - 2);
                       const kind = classifyBlock(b);
                       const kstyle = kindStyle(kind, color);
+                      const isTask = b.source_type === 'task';
                       return (
                         <View
                           key={b.id}
@@ -213,11 +228,23 @@ export function WeekCalendarGrid({ days, todayIso }: { days: WeekDay[]; todayIso
                             { top, height, backgroundColor: kstyle.bg, borderLeftColor: kstyle.border },
                           ]}
                         >
-                          <Text style={[styles.blockTitle, { color: kstyle.fg }]} numberOfLines={height > 34 ? 2 : 1}>
+                          <Text
+                            style={[styles.blockTitle, { color: kstyle.fg }]}
+                            numberOfLines={height > 34 ? 2 : 1}
+                          >
                             {b.title}
                           </Text>
                           {height > 34 ? (
                             <Text style={[styles.blockTime, { color: kstyle.fg }]}>{wallClockTime(b.start)}</Text>
+                          ) : null}
+                          {isTask && onDeleteTask ? (
+                            <Pressable
+                              style={styles.blockDeleteBtn}
+                              onPress={() => onDeleteTask(b.source_id, day.date)}
+                              hitSlop={6}
+                            >
+                              <Ionicons name="close-circle" size={13} color={kstyle.fg} />
+                            </Pressable>
                           ) : null}
                         </View>
                       );

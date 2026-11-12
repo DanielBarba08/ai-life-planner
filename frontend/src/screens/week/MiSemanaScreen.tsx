@@ -4,7 +4,7 @@ import React, { useState } from 'react';
 import { ActivityIndicator, Pressable, StyleSheet, Text, View } from 'react-native';
 
 import { apiErrorMessage } from '../../api/client';
-import { planningApi } from '../../api/endpoints';
+import { planningApi, tasksApi } from '../../api/endpoints';
 import type { PlanBlock, WeekDay } from '../../api/types';
 import { Button } from '../../components/Button';
 import { Card } from '../../components/Card';
@@ -107,6 +107,20 @@ export default function MiSemanaScreen() {
     }
   };
 
+  // Borrado manual de una tarea directo desde el calendario (pedido por
+  // Daniel el 8 nov, igual que en Mi día — ver MiDiaScreen.tsx) — borra
+  // la tarea de verdad y refresca esta semana; si cae en el día de hoy,
+  // también refresca Mi día y la racha, igual que optimizeDay arriba.
+  const deleteTask = async (taskId: string, dateIso: string) => {
+    await tasksApi.remove(taskId);
+    await queryClient.invalidateQueries({ queryKey: ['week', weekStart] });
+    queryClient.invalidateQueries({ queryKey: ['tasks'] });
+    if (dateIso === TODAY) {
+      queryClient.invalidateQueries({ queryKey: ['day-plan', TODAY] });
+      queryClient.invalidateQueries({ queryKey: ['streak'] });
+    }
+  };
+
   const weekEnd = addDaysIso(weekStart, 6);
   const isCurrentWeek = weekStart === mondayOfWeek(TODAY);
   const selectedDay = (weekQuery.data ?? []).find((d) => d.date === selectedDate);
@@ -156,7 +170,7 @@ export default function MiSemanaScreen() {
       ) : weekQuery.isError ? (
         <Text style={styles.muted}>No pudimos cargar tu semana.</Text>
       ) : viewMode === 'calendario' ? (
-        <WeekCalendarGrid days={weekQuery.data ?? []} todayIso={TODAY} />
+        <WeekCalendarGrid days={weekQuery.data ?? []} todayIso={TODAY} onDeleteTask={deleteTask} />
       ) : (
         <>
           <DayStrip
@@ -171,6 +185,7 @@ export default function MiSemanaScreen() {
             isToday={selectedDate === TODAY}
             optimizing={optimizingDate === selectedDate}
             onOptimize={() => optimizeDay(selectedDate)}
+            onDeleteTask={deleteTask}
           />
         </>
       )}
@@ -245,12 +260,14 @@ function DayDetail({
   isToday,
   optimizing,
   onOptimize,
+  onDeleteTask,
 }: {
   day: WeekDay | undefined;
   dateIso: string;
   isToday: boolean;
   optimizing: boolean;
   onOptimize: () => void;
+  onDeleteTask: (taskId: string, dateIso: string) => void;
 }) {
   const { color } = useTheme();
   const styles = React.useMemo(
@@ -283,13 +300,21 @@ function DayDetail({
           <Text style={styles.muted}>Día libre — no hay nada planificado.</Text>
         </Card>
       ) : (
-        blocks.map((b) => <DayBlockRow key={b.id} block={b} dateIso={dateIso} />)
+        blocks.map((b) => <DayBlockRow key={b.id} block={b} dateIso={dateIso} onDelete={onDeleteTask} />)
       )}
     </View>
   );
 }
 
-function DayBlockRow({ block, dateIso }: { block: PlanBlock; dateIso: string }) {
+function DayBlockRow({
+  block,
+  dateIso,
+  onDelete,
+}: {
+  block: PlanBlock;
+  dateIso: string;
+  onDelete: (taskId: string, dateIso: string) => void;
+}) {
   const { color } = useTheme();
   const styles = React.useMemo(
     () =>
@@ -322,6 +347,7 @@ function DayBlockRow({ block, dateIso }: { block: PlanBlock; dateIso: string }) 
           borderWidth: 1.5,
           borderColor: color.line,
         },
+        deleteBtn: { marginLeft: spacing.sm, padding: 4 },
       }),
     [color]
   );
@@ -355,6 +381,11 @@ function DayBlockRow({ block, dateIso }: { block: PlanBlock; dateIso: string }) 
         ) : (
           <View style={styles.pendingCircle} />
         )}
+        {block.source_type === 'task' ? (
+          <Pressable style={styles.deleteBtn} onPress={() => onDelete(block.source_id, dateIso)} hitSlop={8}>
+            <Ionicons name="trash-outline" size={17} color={color.muted} />
+          </Pressable>
+        ) : null}
       </View>
     </Card>
   );

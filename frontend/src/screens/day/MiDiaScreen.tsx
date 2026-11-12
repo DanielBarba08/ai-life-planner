@@ -126,6 +126,17 @@ export default function MiDiaScreen() {
     }
   };
 
+  // Borrado manual de una tarea directo desde su bloque (pedido por
+  // Daniel el 8 nov) — borra la tarea de verdad (DELETE /v1/tasks/{id},
+  // que también limpia su bloque de cualquier plan ya generado, ver
+  // app/routers/tasks.py::delete_task) y refresca el plan de hoy y los
+  // listados de tareas que puedan estar mostrándola en otro lado.
+  const deleteTask = async (taskId: string) => {
+    await tasksApi.remove(taskId);
+    queryClient.invalidateQueries({ queryKey: ['day-plan', TODAY] });
+    queryClient.invalidateQueries({ queryKey: ['tasks'] });
+  };
+
   const askWhatsNext = async () => {
     setNowLoading(true);
     setNowMessage(null);
@@ -203,7 +214,9 @@ export default function MiDiaScreen() {
           </View>
         </Card>
       ) : (
-        blocks.map((block) => <BlockRow key={block.id} block={block} onPress={() => setOpenBlockId(block.id)} />)
+        blocks.map((block) => (
+          <BlockRow key={block.id} block={block} onPress={() => setOpenBlockId(block.id)} onDelete={deleteTask} />
+        ))
       )}
 
       {plan?.unplaced?.length ? (
@@ -403,7 +416,15 @@ function GoalsWidget() {
   );
 }
 
-function BlockRow({ block, onPress }: { block: PlanBlock; onPress: () => void }) {
+function BlockRow({
+  block,
+  onPress,
+  onDelete,
+}: {
+  block: PlanBlock;
+  onPress: () => void;
+  onDelete: (taskId: string) => void;
+}) {
   const { color } = useTheme();
   const styles = React.useMemo(
     () =>
@@ -425,6 +446,7 @@ function BlockRow({ block, onPress }: { block: PlanBlock; onPress: () => void })
         blockBody: { flex: 1, borderLeftWidth: 2, paddingLeft: spacing.md },
         blockTitle: { ...type.bodyStrong, color: color.ink },
         blockMeta: { ...type.caption, color: color.muted, marginTop: 2 },
+        deleteBtn: { marginLeft: spacing.sm, padding: 4 },
       }),
     [color]
   );
@@ -449,6 +471,11 @@ function BlockRow({ block, onPress }: { block: PlanBlock; onPress: () => void })
             <Text style={styles.blockTitle}>{block.title}</Text>
             <Text style={styles.blockMeta}>{isTask ? 'Toca para ver por qué' : 'Evento fijo'}</Text>
           </View>
+          {isTask ? (
+            <Pressable style={styles.deleteBtn} onPress={() => onDelete(block.source_id)} hitSlop={8}>
+              <Ionicons name="trash-outline" size={17} color={color.muted} />
+            </Pressable>
+          ) : null}
         </View>
       </Card>
     </Pressable>

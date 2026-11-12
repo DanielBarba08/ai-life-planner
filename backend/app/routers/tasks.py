@@ -3,6 +3,7 @@ from sqlalchemy.orm import Session
 
 from app.database import get_db
 from app.deps import get_current_user
+from app.models.day_plan import BlockSourceType, PlanBlock
 from app.models.task import Task, TaskStatus
 from app.models.user import User
 from app.schemas.task import TaskCreate, TaskRead, TaskUpdate
@@ -99,7 +100,26 @@ def delete_task(
     current_user: User = Depends(get_current_user),
     db: Session = Depends(get_db),
 ):
+    """
+    Borrar una tarea manualmente desde Mi día o Calendario (pedido por
+    Daniel el 8 nov) debe hacer que el bloque desaparezca ahí también, no
+    solo del listado de /v1/tasks: un plan ya optimizado guarda sus
+    bloques aparte, en `plan_blocks` (ver app/models/day_plan.py), y
+    `source_id` ahí es solo un string suelto — sin FK ni cascada — así que
+    nunca se borraba solo. Se borran a mano aquí, uno por uno vía el ORM
+    (nunca un DELETE masivo) para que la cascada de PlanBlock.explanation
+    (cascade="all, delete-orphan") también limpie su explicación.
+    """
     task = _get_owned_task(db, task_id, current_user.id)
+
+    stale_blocks = (
+        db.query(PlanBlock)
+        .filter(PlanBlock.source_type == BlockSourceType.TASK, PlanBlock.source_id == task_id)
+        .all()
+    )
+    for block in stale_blocks:
+        db.delete(block)
+
     db.delete(task)
     db.commit()
     return None

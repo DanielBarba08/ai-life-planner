@@ -78,8 +78,27 @@ def _build_fixed_items(db: Session, user: User, target_date: date_type) -> list[
     return fixed_items
 
 
-def _build_task_items(db: Session, user: User) -> tuple[list[engine.TaskItem], set[str]]:
+def _build_task_items(db: Session, user: User, target_date: date_type) -> tuple[list[engine.TaskItem], set[str]]:
+    """
+    Tareas pendientes candidatas para planificar `target_date`.
+
+    Para tareas normales, cualquier pendiente compite (el motor decide con
+    urgency_score, que usa el deadline solo como señal, nunca como corte
+    duro) — así se puede avanzar una tarea antes de su fecha límite si hay
+    tiempo libre, que es el comportamiento esperado de un "deadline".
+
+    Para una sesión de hábito (habit_id no es None), el deadline NO es una
+    fecha límite flexible: `habits/service.py::confirm_sessions` lo usa
+    para fijar el día exacto en el que esa sesión debe ocurrir (una por
+    cada día de la semana sugerido). Sin este filtro, todas las sesiones
+    de la semana son candidatas para CUALQUIER día y el motor, siguiendo
+    solo duración/urgencia, puede meterlas todas en el primer día que se
+    optimice — el bug reportado por Daniel el 8 nov ("se agregan todas las
+    horas en un solo día"). Por eso una sesión de hábito con deadline solo
+    es candidata el día exacto de su propio deadline.
+    """
     pending = db.query(Task).filter(Task.user_id == user.id, Task.status == TaskStatus.PENDIENTE).all()
+    pending = [t for t in pending if t.habit_id is None or t.deadline is None or t.deadline.date() == target_date]
     pending_ids = {t.id for t in pending}
     items = [
         engine.TaskItem(
@@ -120,7 +139,7 @@ def generate_plan(db: Session, user: User, target_date: date_type) -> engine.Day
     prefs = db.query(UserPreferences).filter(UserPreferences.user_id == user.id).first()
     wake_time, sleep_time = _wake_sleep(user)
     fixed_items = _build_fixed_items(db, user, target_date)
-    tasks, pending_ids = _build_task_items(db, user)
+    tasks, pending_ids = _build_task_items(db, user, target_date)
     personal_stats = compute_personal_stats(db, user, target_date)
 
     return engine.build_day_plan(
@@ -177,7 +196,7 @@ def generate_replan(db: Session, user: User, target_date: date_type, now: dateti
     prefs = db.query(UserPreferences).filter(UserPreferences.user_id == user.id).first()
     wake_time, sleep_time = _wake_sleep(user)
     fixed_items = _build_fixed_items(db, user, target_date)
-    tasks, pending_ids = _build_task_items(db, user)
+    tasks, pending_ids = _build_task_items(db, user, target_date)
     pending_ids -= locked_task_ids
     personal_stats = compute_personal_stats(db, user, target_date)
 
@@ -402,7 +421,7 @@ def whats_next(db: Session, user: User, now: datetime) -> dict:
         }
 
     upcoming = next((b for b in blocks if b.start > now), None)
-    pending, _ = _build_task_items(db, user)
+    pending, _ = _build_task_items(db, user, today)
     scheduled_task_ids = {b.source_id for b in blocks if b.source_type == BlockSourceType.TASK}
     candidates = sorted(
         [t for t in pending if t.id not in scheduled_task_ids],

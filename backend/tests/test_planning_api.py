@@ -1,3 +1,5 @@
+from datetime import datetime
+
 PLAN_DATE = "2026-11-16"  # lunes fijo y arbitrario — determinista, no depende del día real
 
 
@@ -158,3 +160,88 @@ def test_planning_endpoints_require_auth(client):
     assert client.post("/v1/planning/optimize", json={"date": PLAN_DATE}).status_code == 401
     assert client.get(f"/v1/planning/day/{PLAN_DATE}").status_code == 401
     assert client.get("/v1/planning/now").status_code == 401
+
+
+def test_optimize_only_schedules_habit_sessions_on_their_own_day(client, auth_headers):
+    """
+    Regresión del bug reportado por Daniel el 8 nov: al confirmar las
+    sesiones sugeridas de un hábito para varios días distintos de la
+    semana, "Optimizar mi día" para UN solo día no debe meter todas las
+    sesiones de la semana en ese día — cada sesión confirmada tiene su
+    propio deadline (el día que le tocaba) y solo debe poder programarse
+    ahí, nunca adelantada a otro día solo porque hay tiempo libre.
+
+    Las fechas se fabrican a mano (en vez de usar las que /week sugiere
+    de verdad) para que la prueba sea determinista sin importar qué día
+    de la semana real se ejecute — confirm-week solo valida la CANTIDAD
+    de sesiones contra lo que falta, no que coincidan exactamente con lo
+    sugerido (ver app/routers/habits.py::confirm_habit_week).
+    """
+    habit_resp = client.post(
+        "/v1/habits",
+        json={"title": "Entrenar", "target_frequency_per_week": 3, "duration_est_min": 45},
+        headers=auth_headers,
+    )
+    habit_id = habit_resp.json()["id"]
+
+    day_a, day_b = "2026-11-17", "2026-11-19"  # martes y jueves, arbitrarios y fijos
+    sessions = [
+        {
+            "title": "Entrenar",
+            "duration_est_min": 45,
+            "concentration_level": "media",
+            "category": None,
+            "suggested_date": day,
+        }
+        for day in (day_a, day_b)
+    ]
+
+    confirm = client.post(f"/v1/habits/{habit_id}/confirm-week", json={"sessions": sessions}, headers=auth_headers)
+    assert confirm.status_code == 201, confirm.text
+    created = confirm.json()
+    assert len(created) == 2
+    # Cada tarea creada trae su propio deadline (fin del día sugerido) —
+    # lo leemos directo de /v1/tasks en vez de adivinar por título.
+    tasks = client.get("/v1/tasks", headers=auth_headers).json()
+    deadline_date_by_id = {
+        t["id"]: datetime.fromisoformat(t["deadline"]).date().isoformat()
+        for t in tasks
+        if t.get("habit_id") == habit_id and t.get("deadline")
+    }
+    assert set(deadline_date_by_id.values()) == {day_a, day_b}
+
+    plan = client.post("/v1/planning/optimize", json={"date": day_a}, headers=auth_headers).json()
+    scheduled_task_ids = {b["source_id"] for b in plan["blocks"] if b["source_type"] == "task"}
+
+    # La sesión de day_a sí debe poder programarse en el plan de day_a...
+    task_a = next(tid for tid, d in deadline_date_by_id.items() if d == day_a)
+    assert task_a in scheduled_task_ids
+    # ...pero la de day_b no debe colarse ahí solo porque hay tiempo libre.
+    task_b = next(tid for tid, d in deadline_date_by_id.items() if d == day_b)
+    assert task_b not in scheduled_task_ids
+
+
+def test_deleting_a_task_removes_its_block_from_an_already_optimized_plan(client, auth_headers):
+    """
+    Segunda parte del pedido de Daniel el 8 nov: borrar una tarea
+    manualmente desde el calendario (Mi día/Mi semana) debe quitar
+    también su bloque de un plan ya generado — no solo borrarla de
+    /v1/tasks — porque un plan optimizado guarda sus bloques por separado
+    en plan_blocks (ver app/routers/tasks.py::delete_task).
+    """
+    task = client.post(
+        "/v1/tasks", json={"title": "Leer", "duration_est_min": 30}, headers=auth_headers
+    ).json()
+    plan = client.post("/v1/planning/optimize", json={"date": PLAN_DATE}, headers=auth_headers).json()
+    block = next(b for b in plan["blocks"] if b["source_type"] == "task" and b["source_id"] == task["id"])
+
+    resp = client.delete(f"/v1/tasks/{task['id']}", headers=auth_headers)
+    assert resp.status_code == 204
+
+    refreshed = client.get(f"/v1/planning/day/{PLAN_DATE}", headers=auth_headers).json()
+    assert all(b["id"] != block["id"] for b in refreshed["blocks"])
+    assert all(b["source_id"] != task["id"] for b in refreshed["blocks"])
+
+    # La explicación del bloque borrado tampoco debe seguir accesible.
+    explanation = client.get(f"/v1/explanations/{block['id']}", headers=auth_headers)
+    assert explanation.status_code == 404
