@@ -8,7 +8,7 @@ import { useTheme } from '../theme/ThemeContext';
 import { radius, spacing, type as txt } from '../theme/tokens';
 import { Button } from './Button';
 import { Pill } from './Pill';
-import { TextField } from './TextField';
+import { TimePickerField } from './TimePickerField';
 
 const TYPES: { value: AvailabilityType; label: string }[] = [
   { value: 'trabajo', label: 'Trabajo' },
@@ -24,7 +24,10 @@ const DAYS = ['Lun', 'Mar', 'Mié', 'Jue', 'Vie', 'Sáb', 'Dom'];
 
 /** Solo crear/borrar — el backend no tiene PATCH para disponibilidad
  * (ver app/routers/availability.py), así que "editar" un bloque es
- * borrarlo y crear uno nuevo con los datos corregidos. */
+ * borrarlo y crear uno nuevo con los datos corregidos. La hora de inicio
+ * y fin se eligen con TimePickerField (cada media hora, de 00:00 a
+ * 23:30), nunca tecleada a mano — pedido por Daniel el 17 nov, mismo
+ * cambio que Eventos fijos (ver EventFormModal.tsx). */
 export function AvailabilityFormModal({ visible, onClose, onSaved }: { visible: boolean; onClose: () => void; onSaved: () => void }) {
   const { color, elevation } = useTheme();
   const styles = useMemo(
@@ -145,11 +148,11 @@ export function AvailabilityFormModal({ visible, onClose, onSaved }: { visible: 
 
           <View style={styles.rangeRow}>
             <View style={{ flex: 1 }}>
-              <TextField label="Desde" value={start} onChangeText={setStart} placeholder="09:00" />
+              <TimePickerField label="Desde" value={start} onChange={setStart} />
             </View>
             <View style={{ width: spacing.sm }} />
             <View style={{ flex: 1 }}>
-              <TextField label="Hasta" value={end} onChangeText={setEnd} placeholder="17:00" />
+              <TimePickerField label="Hasta" value={end} onChange={setEnd} />
             </View>
           </View>
 

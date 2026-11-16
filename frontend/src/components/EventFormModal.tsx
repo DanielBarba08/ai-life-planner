@@ -8,11 +8,16 @@ import { useTheme } from '../theme/ThemeContext';
 import { radius, spacing, type } from '../theme/tokens';
 import { combineDateTime, splitDateTime } from '../utils/date';
 import { Button } from './Button';
+import { DatePickerField } from './DatePickerField';
 import { TextField } from './TextField';
+import { TimePickerField } from './TimePickerField';
 
 /** Crear/editar un evento fijo — el Planning Engine nunca los reprograma
  * solo (son inamovibles por diseño, ver backend/README.md), así que esta
- * es la única forma de corregir uno si cambia de horario. */
+ * es la única forma de corregir uno si cambia de horario. Fecha y hora se
+ * eligen de un selector (DatePickerField/TimePickerField), nunca
+ * tecleadas a mano — pedido por Daniel el 17 nov, mismo cambio que
+ * Disponibilidad (ver AvailabilityFormModal.tsx). */
 export function EventFormModal({
   visible,
   onClose,
@@ -113,22 +118,22 @@ export function EventFormModal({
           <Text style={styles.fieldLabel}>Inicio</Text>
           <View style={styles.rangeRow}>
             <View style={{ flex: 1 }}>
-              <TextField label="Fecha" value={startDate} onChangeText={setStartDate} placeholder="2026-09-20" />
+              <DatePickerField label="Fecha" value={startDate} onChange={setStartDate} />
             </View>
             <View style={{ width: spacing.sm }} />
             <View style={{ flex: 1 }}>
-              <TextField label="Hora" value={startTime} onChangeText={setStartTime} placeholder="09:00" />
+              <TimePickerField label="Hora" value={startTime} onChange={setStartTime} />
             </View>
           </View>
 
           <Text style={styles.fieldLabel}>Fin</Text>
           <View style={styles.rangeRow}>
             <View style={{ flex: 1 }}>
-              <TextField label="Fecha" value={endDate} onChangeText={setEndDate} placeholder="2026-09-20" />
+              <DatePickerField label="Fecha" value={endDate} onChange={setEndDate} />
             </View>
             <View style={{ width: spacing.sm }} />
             <View style={{ flex: 1 }}>
-              <TextField label="Hora" value={endTime} onChangeText={setEndTime} placeholder="10:00" />
+              <TimePickerField label="Hora" value={endTime} onChange={setEndTime} />
             </View>
           </View>
 

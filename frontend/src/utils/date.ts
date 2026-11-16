@@ -69,6 +69,20 @@ export function wallClockTime(iso: string): string {
   return match ? `${match[1]}:${match[2]}` : iso;
 }
 
+/** Todas las medias horas posibles de un día, "00:00" a "23:30" (48 en
+ * total) — pedido por Daniel el 17 nov para Eventos fijos y
+ * Disponibilidad: un selector con "todas las horas posibles" para elegir,
+ * nunca un campo de texto libre donde teclear la hora a mano (ver
+ * TimePickerField.tsx). */
+export function allHalfHourOptions(): string[] {
+  const out: string[] = [];
+  for (let h = 0; h < 24; h++) {
+    out.push(`${String(h).padStart(2, '0')}:00`);
+    out.push(`${String(h).padStart(2, '0')}:30`);
+  }
+  return out;
+}
+
 /** "Septiembre 2026" — encabezado del selector de fecha (ver DatePickerField.tsx). */
 export function monthYearLabel(year: number, month0: number): string {
   const d = new Date(year, month0, 1);
