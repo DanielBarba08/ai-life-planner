@@ -93,8 +93,7 @@ def delete_habit(
     db: Session = Depends(get_db),
 ):
     habit = _get_owned_habit(db, habit_id, current_user.id)
-    db.delete(habit)
-    db.commit()
+    habits_service.delete_habit_and_its_sessions(db, habit)
     return None
 
 

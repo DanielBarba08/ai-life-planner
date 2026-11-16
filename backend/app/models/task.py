@@ -61,11 +61,13 @@ class Task(Base):
     # Hábitos avanzados (Fase 5): si esta tarea es una sesión confirmada de
     # un hábito recurrente, apunta a él — así se puede contar cuántas
     # sesiones de esta semana ya se confirmaron/completaron sin inventar
-    # una tabla de "ocurrencias" nueva (ver app/habits/service.py). SET
-    # NULL al borrar el hábito: la tarea ya confirmada sigue siendo tarea
-    # real del usuario, solo pierde el vínculo.
+    # una tabla de "ocurrencias" nueva (ver app/habits/service.py).
+    # CASCADE al borrar el hábito (antes era SET NULL, cambiado el 16 nov
+    # a pedido de Daniel): dejaba sesiones huérfanas visibles para siempre
+    # en Tareas, sin ninguna indicación de que venían de un hábito que ya
+    # no existe — ver habits_service.delete_habit_and_its_sessions.
     habit_id: Mapped[str | None] = mapped_column(
-        String(36), ForeignKey("habits.id", ondelete="SET NULL"), nullable=True
+        String(36), ForeignKey("habits.id", ondelete="CASCADE"), nullable=True
     )
 
     created_at: Mapped[datetime] = mapped_column(DateTime, default=datetime.utcnow)

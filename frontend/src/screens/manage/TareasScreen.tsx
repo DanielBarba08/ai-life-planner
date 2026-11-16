@@ -78,15 +78,33 @@ export default function TareasScreen({ navigation }: Props) {
 
   const allTasksQuery = useQuery<Task[]>({ queryKey: ['tasks', 'todas'], queryFn: () => tasksApi.list() });
 
-  const refresh = () => {
+  // Crear/editar/borrar una tarea aquí puede afectar el plan de cualquier
+  // día (si ya estaba optimizado) y "Mi semana" — antes solo se
+  // invalidaba ['tasks'], así que borrar algo en Tareas lo quitaba de
+  // esa lista pero el bloque seguía viéndose "fantasma" en Mi
+  // semana/Calendario hasta recargar la app entera (bug reportado por
+  // Daniel el 16 nov: "borro el bloque leer en tareas y no se refleja en
+  // calendario"). No sabemos de qué día era la tarea desde aquí, así que
+  // se invalida ['week']/['day-plan'] completos (sin fecha), no solo
+  // hoy — React Query matchea por prefijo, así que esto refresca
+  // cualquier semana o día ya cacheado, igual que ya hacía
+  // MiSemanaScreen.tsx::deleteTask para el caso de hoy.
+  const invalidateCalendarViews = () => {
     queryClient.invalidateQueries({ queryKey: ['tasks'] });
+    queryClient.invalidateQueries({ queryKey: ['week'] });
+    queryClient.invalidateQueries({ queryKey: ['day-plan'] });
+    queryClient.invalidateQueries({ queryKey: ['streak'] });
+  };
+
+  const refresh = () => {
+    invalidateCalendarViews();
     setFormVisible(false);
     setEditingTask(null);
   };
 
   const remove = async (id: string) => {
     await tasksApi.remove(id);
-    queryClient.invalidateQueries({ queryKey: ['tasks'] });
+    invalidateCalendarViews();
   };
 
   return (

@@ -183,6 +183,29 @@ def progress_history(db: Session, habit: Habit, today: date_type, weeks: int = 6
     return result
 
 
+def delete_habit_and_its_sessions(db: Session, habit: Habit) -> None:
+    """
+    Borra un hábito y, con él, TODAS sus sesiones (tareas con
+    `habit_id == habit.id`) — pendientes y completadas por igual —
+    pedido explícito de Daniel el 16 nov: antes el borrado dejaba esas
+    tareas sueltas como tareas normales (el FK era SET NULL), y se
+    quedaban para siempre en Tareas con el título congelado del hábito ya
+    borrado, sin ninguna indicación de que venían de ahí — confuso y
+    fácil de confundir con tareas duplicadas nuevas.
+
+    Se borra explícito aquí, a nivel de aplicación, en vez de confiar
+    solo en el `ondelete="CASCADE"` del modelo (ver app/models/task.py):
+    SQLite en desarrollo/test no aplica FKs a menos que se active
+    `PRAGMA foreign_keys`, que este proyecto no activa (ver
+    app/database.py) — así que sin este borrado explícito, la prueba
+    automatizada pasaría en Postgres pero fallaría en silencio en la
+    suite normal de pytest.
+    """
+    db.query(Task).filter(Task.habit_id == habit.id).delete(synchronize_session=False)
+    db.delete(habit)
+    db.commit()
+
+
 def confirm_sessions(db: Session, habit: Habit, user_id: str, sessions: list[SuggestedSession]) -> list[Task]:
     """
     El único lugar donde una sesión sugerida se vuelve una tarea real —

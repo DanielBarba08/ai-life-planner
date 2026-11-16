@@ -59,6 +59,40 @@ def test_habit_crud(client, auth_headers):
     assert resp.status_code == 404
 
 
+def test_deleting_a_habit_deletes_its_sessions_too(client, auth_headers):
+    """Pedido por Daniel el 16 nov, después de confundir las sobras de un
+    hábito "Leer" ya borrado con tareas duplicadas de uno nuevo: antes
+    borrar un hábito dejaba sus sesiones (tareas con habit_id) sueltas
+    como tareas normales para siempre — ahora se borran con él, pendientes
+    y completadas por igual."""
+    resp = client.post(
+        "/v1/habits",
+        json={"title": "Leer", "target_frequency_per_week": 3, "duration_est_min": 45, "concentration_level": "media"},
+        headers=auth_headers,
+    )
+    assert resp.status_code == 201, resp.text
+    habit_id = resp.json()["id"]
+
+    resp = client.get("/v1/tasks", headers=auth_headers)
+    sessions = [t for t in resp.json() if t["habit_id"] == habit_id]
+    assert len(sessions) == 3, sessions
+
+    # Completa una de las sesiones, para probar que una COMPLETADA también
+    # se borra con el hábito, no solo las pendientes.
+    resp = client.patch(f"/v1/tasks/{sessions[0]['id']}", json={"status": "completada"}, headers=auth_headers)
+    assert resp.status_code == 200
+
+    resp = client.delete(f"/v1/habits/{habit_id}", headers=auth_headers)
+    assert resp.status_code == 204
+
+    resp = client.get("/v1/tasks", headers=auth_headers)
+    assert resp.status_code == 200
+    remaining_ids = {t["id"] for t in resp.json()}
+    assert not remaining_ids.intersection({s["id"] for s in sessions}), (
+        "las sesiones del hábito borrado no deberían seguir en Tareas"
+    )
+
+
 def test_creating_a_habit_auto_confirms_sessions_for_the_current_week(client, auth_headers):
     """Pedido por Daniel el 12 nov: "que se agreguen al horario" — ya no
     hace falta entrar a Hábitos y confirmar nada a mano."""

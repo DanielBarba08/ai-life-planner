@@ -133,6 +133,13 @@ export default function MiDiaScreen() {
     await tasksApi.remove(taskId);
     queryClient.invalidateQueries({ queryKey: ['day-plan', TODAY] });
     queryClient.invalidateQueries({ queryKey: ['tasks'] });
+    // También invalida "Mi semana" — sin esto, un bloque borrado aquí
+    // seguía viéndose "fantasma" en el Calendario hasta recargar la app
+    // entera (mismo bug que en TareasScreen.tsx, reportado por Daniel el
+    // 16 nov: cada pantalla con su propio DELETE invalidaba su propia
+    // caché nada más, nunca las otras vistas que pueden mostrar el mismo
+    // bloque).
+    queryClient.invalidateQueries({ queryKey: ['week'] });
   };
 
   const askWhatsNext = async () => {
