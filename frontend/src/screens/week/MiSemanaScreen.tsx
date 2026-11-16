@@ -190,7 +190,13 @@ export default function MiSemanaScreen() {
       ) : weekQuery.isError ? (
         <Text style={styles.muted}>No pudimos cargar tu semana.</Text>
       ) : viewMode === 'calendario' ? (
-        <WeekCalendarGrid days={weekQuery.data ?? []} todayIso={TODAY} onDeleteTask={deleteTask} />
+        <WeekCalendarGrid
+          days={weekQuery.data ?? []}
+          todayIso={TODAY}
+          onDeleteTask={deleteTask}
+          onOptimizeDay={optimizeDay}
+          optimizingDate={optimizingDate}
+        />
       ) : (
         <>
           <DayStrip
@@ -306,19 +312,30 @@ function DayDetail({
 
   const label = isToday ? 'Tu día de hoy' : `Tu día: ${shortWeekdayLabel(dateIso)}`;
   const blocks = [...(day?.blocks ?? [])].sort((a, b) => a.start.localeCompare(b.start));
+  const hasPlan = !!day && day.has_plan;
 
   return (
     <View>
       <Text style={styles.sectionTitle}>{label}</Text>
 
-      {!day || !day.has_plan ? (
-        <Card style={styles.emptyCard}>
-          <View style={styles.emptyRow}>
-            <Text style={styles.muted}>Sin optimizar todavía.</Text>
-            <Button label="Optimizar" variant="secondary" onPress={onOptimize} loading={optimizing} />
-          </View>
-        </Card>
-      ) : blocks.length === 0 ? (
+      {/* Antes este botón solo aparecía si el día nunca se había
+          optimizado (pedido por Daniel el 17 nov: "agregar un botón de
+          volver a optimizar... para que se vayan agregando actividades
+          que no se habían agregado") — si agregabas una tarea nueva
+          después de optimizar, no había forma de meterla al plan de ese
+          día sin ir a Mi día. Ahora el botón sigue disponible aunque el
+          día ya tenga plan, con el mismo texto que ya usa Mi día
+          ("Volver a optimizar") para la misma acción. */}
+      <Card style={styles.emptyCard}>
+        <View style={styles.emptyRow}>
+          <Text style={styles.muted}>
+            {hasPlan ? 'Si agregaste algo nuevo, puedes incluirlo aquí.' : 'Sin optimizar todavía.'}
+          </Text>
+          <Button label={hasPlan ? 'Volver a optimizar' : 'Optimizar'} variant="secondary" onPress={onOptimize} loading={optimizing} />
+        </View>
+      </Card>
+
+      {!hasPlan ? null : blocks.length === 0 ? (
         <Card style={styles.emptyCard}>
           <Text style={styles.muted}>Día libre — no hay nada planificado.</Text>
         </Card>

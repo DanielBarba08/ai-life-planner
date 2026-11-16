@@ -1,6 +1,6 @@
 import { Ionicons } from '@expo/vector-icons';
 import React from 'react';
-import { Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
+import { ActivityIndicator, Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
 
 import type { PlanBlock, WeekDay } from '../api/types';
 import { ColorTokens, radius, spacing, type } from '../theme/tokens';
@@ -85,6 +85,8 @@ export function WeekCalendarGrid({
   days,
   todayIso,
   onDeleteTask,
+  onOptimizeDay,
+  optimizingDate,
 }: {
   days: WeekDay[];
   todayIso: string;
@@ -94,6 +96,17 @@ export function WeekCalendarGrid({
    * lectura; cuando no se pasa, los bloques de tarea no muestran el
    * ícono de borrar. */
   onDeleteTask?: (taskId: string, dateIso: string) => void;
+  /** Botón de "volver a optimizar" en el encabezado de cada día (pedido
+   * por Daniel el 17 nov: en esta vista no había ninguna forma de
+   * recalcular un día ya optimizado para que recoja tareas agregadas
+   * después — había que irse a la vista "Día" o a Mi día). Mismo
+   * `POST /v1/planning/optimize` de siempre, un día a la vez — opcional
+   * por la misma razón que onDeleteTask. */
+  onOptimizeDay?: (dateIso: string) => void;
+  /** Fecha que está optimizándose en este momento (para mostrar su
+   * spinner nada más en esa columna) — viene del mismo estado que ya
+   * usa la vista "Día" (`optimizingDate` en MiSemanaScreen.tsx). */
+  optimizingDate?: string | null;
 }) {
   const { color } = useTheme();
 
@@ -147,9 +160,10 @@ export function WeekCalendarGrid({
         axisHour: { height: HOUR_PX },
         axisHourLabel: { ...type.caption, color: color.muted, marginTop: -6 },
         dayCol: { width: DAY_COL_WIDTH, borderLeftWidth: 1, borderLeftColor: color.line },
-        dayHeader: { height: HEADER_HEIGHT, alignItems: 'center', justifyContent: 'center' },
+        dayHeader: { height: HEADER_HEIGHT, flexDirection: 'row', alignItems: 'center', justifyContent: 'center' },
         dayHeaderLabel: { ...type.caption, color: color.muted, textTransform: 'uppercase' },
         dayHeaderLabelToday: { color: color.accent },
+        dayHeaderOptimizeBtn: { marginLeft: 4, padding: 2 },
         gridArea: { position: 'relative' },
         hourLine: { position: 'absolute', left: 0, right: 0, height: 1, backgroundColor: color.line },
         nowLine: { position: 'absolute', left: 0, right: 0, height: 2, backgroundColor: color.accent },
@@ -204,6 +218,20 @@ export function WeekCalendarGrid({
                     <Text style={[styles.dayHeaderLabel, isToday && styles.dayHeaderLabelToday]}>
                       {shortWeekdayLabel(day.date)}
                     </Text>
+                    {onOptimizeDay ? (
+                      <Pressable
+                        style={styles.dayHeaderOptimizeBtn}
+                        onPress={() => onOptimizeDay(day.date)}
+                        hitSlop={6}
+                        accessibilityLabel={`Volver a optimizar ${shortWeekdayLabel(day.date)}`}
+                      >
+                        {optimizingDate === day.date ? (
+                          <ActivityIndicator size="small" color={color.accent} />
+                        ) : (
+                          <Ionicons name="refresh" size={13} color={color.muted} />
+                        )}
+                      </Pressable>
+                    ) : null}
                   </View>
                   <View style={[styles.gridArea, { height: gridHeight }]}>
                     {hours.map((h) => (
