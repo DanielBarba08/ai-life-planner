@@ -4,11 +4,17 @@ from sqlalchemy.orm import Session
 from app.database import get_db
 from app.deps import get_current_user
 from app.habits import service as habits_service
-from app.models.goal import Goal
 from app.models.habit import Habit, HabitStatus
 from app.models.user import User
 from app.planning.service import local_now
-from app.schemas.habit import ConfirmWeekRequest, HabitCreate, HabitRead, HabitUpdate, HabitWeekRead
+from app.schemas.habit import (
+    ConfirmWeekRequest,
+    HabitCreate,
+    HabitProgressRead,
+    HabitRead,
+    HabitUpdate,
+    HabitWeekRead,
+)
 from app.schemas.task import TaskRead
 
 router = APIRouter(prefix="/v1/habits", tags=["habits"])
@@ -21,23 +27,18 @@ def _get_owned_habit(db: Session, habit_id: str, user_id: str) -> Habit:
     return habit
 
 
-def _validate_goal(db: Session, goal_id: str | None, user_id: str):
-    if goal_id is None:
-        return
-    goal = db.query(Goal).filter(Goal.id == goal_id, Goal.user_id == user_id).first()
-    if goal is None:
-        raise HTTPException(
-            status.HTTP_422_UNPROCESSABLE_CONTENT,
-            detail="goal_id debe ser un objetivo existente del mismo usuario",
-        )
-
-
 @router.get("", response_model=list[HabitRead])
 def list_habits(
     status_filter: HabitStatus | None = Query(default=None, alias="status"),
     current_user: User = Depends(get_current_user),
     db: Session = Depends(get_db),
 ):
+    # Agrega solas al horario las sesiones que falten de la semana actual
+    # antes de listar — así Hábitos siempre refleja lo que ya está en el
+    # calendario sin que el usuario tenga que confirmar nada a mano (ver
+    # habits_service.auto_confirm_due_sessions).
+    habits_service.auto_confirm_due_sessions(db, current_user.id, local_now(current_user).date())
+
     query = db.query(Habit).filter(Habit.user_id == current_user.id)
     if status_filter is not None:
         query = query.filter(Habit.status == status_filter)
@@ -50,11 +51,11 @@ def create_habit(
     current_user: User = Depends(get_current_user),
     db: Session = Depends(get_db),
 ):
-    _validate_goal(db, payload.goal_id, current_user.id)
     habit = Habit(user_id=current_user.id, **payload.model_dump())
     db.add(habit)
     db.commit()
     db.refresh(habit)
+    habits_service.auto_confirm_due_sessions(db, current_user.id, local_now(current_user).date())
     return habit
 
 
@@ -76,9 +77,6 @@ def update_habit(
 ):
     habit = _get_owned_habit(db, habit_id, current_user.id)
     updates = payload.model_dump(exclude_unset=True)
-
-    if "goal_id" in updates:
-        _validate_goal(db, updates["goal_id"], current_user.id)
 
     for field, value in updates.items():
         setattr(habit, field, value)
@@ -118,10 +116,14 @@ def read_habit_week(
     """
     habit = _get_owned_habit(db, habit_id, current_user.id)
     today = local_now(current_user).date()
+    habits_service.auto_confirm_due_sessions(db, current_user.id, today)
     start = habits_service.monday_of(today)
 
     progress = habits_service.week_progress(db, habit, start)
-    suggested = habits_service.suggest_sessions(habit, start, progress["remaining_to_suggest"], today)
+    already_confirmed_dates = habits_service.confirmed_dates_this_week(db, habit, start)
+    suggested = habits_service.suggest_sessions(
+        habit, start, progress["remaining_to_suggest"], today, exclude_dates=already_confirmed_dates
+    )
 
     return HabitWeekRead(
         habit_id=habit.id,
@@ -163,3 +165,21 @@ def confirm_habit_week(
         )
 
     return habits_service.confirm_sessions(db, habit, current_user.id, payload.sessions)
+
+
+@router.get("/{habit_id}/progress", response_model=HabitProgressRead)
+def read_habit_progress(
+    habit_id: str,
+    weeks: int = Query(default=6, ge=1, le=26),
+    current_user: User = Depends(get_current_user),
+    db: Session = Depends(get_db),
+):
+    """
+    Progreso real de las últimas `weeks` semanas (pedido por Daniel el 12
+    nov: "con gráficas mostrar el progreso en las semanas") — ver
+    app/habits/service.py::progress_history.
+    """
+    habit = _get_owned_habit(db, habit_id, current_user.id)
+    today = local_now(current_user).date()
+    weeks_data = habits_service.progress_history(db, habit, today, weeks)
+    return HabitProgressRead(habit_id=habit.id, weeks=weeks_data)

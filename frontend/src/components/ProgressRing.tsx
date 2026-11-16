@@ -7,12 +7,11 @@ import { type } from '../theme/tokens';
 
 /**
  * Anillo de progreso circular (pedido por Daniel a partir del mockup de
- * referencia: los anillos "68%"/"60%" de la pantalla de Objetivos). Solo se
- * usa donde el porcentaje viene de un dato real — en Hábitos
- * (confirmed_this_week / target_frequency_per_week, ver HabitosScreen.tsx),
- * nunca en Objetivos/Goal, que no trae ningún campo de progreso en el
- * backend: inventar un porcentaje ahí rompería el mismo principio de "nunca
- * inventar" que ya sigue el extractor de horarios (ver
+ * referencia: los anillos "68%"/"60%" de la pantalla de Objetivos, hoy
+ * fusionada con Hábitos). Solo se usa donde el porcentaje viene de un
+ * dato real — confirmed_this_week / target_frequency_per_week, ver
+ * HabitosScreen.tsx — nunca un número inventado, mismo principio que
+ * sigue el extractor de horarios (ver
  * backend/app/assistant/schedule_extractor.py).
  */
 export function ProgressRing({

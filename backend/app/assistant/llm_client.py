@@ -40,15 +40,15 @@ Las siete acciones:
 - whats_next: el usuario pregunta qué debería hacer ahora mismo o a continuación, sin pedir que se cambie nada del plan. Ej: "¿qué hago ahora?", "¿qué sigue?", "dime qué toca".
 - optimize_day: el usuario pide que se arme/genere su plan del día por primera vez (aún no tiene uno, o quiere uno completamente nuevo desde cero), usando datos que YA existen en la app (tareas, disponibilidad, eventos ya cargados). Ej: "optimiza mi día", "arma mi agenda de hoy", "planifica mi día". IMPORTANTE: si el mensaje también describe bloques concretos de horario nuevos (días y horas de escuela, trabajo, gimnasio, comidas, etc.) que el usuario quiere que se agreguen, eso NO es optimize_day aunque use verbos como "planificar", "organizar" o "ayúdame a armar mi semana" — es import_schedule (ver abajo). optimize_day es solo para cuando NO hay datos nuevos de horario en el mensaje, solo la petición de generar el plan con lo que ya está cargado.
 - replan_day: el usuario quiere REORGANIZAR lo que ya está planeado o lo que queda del día — no un plan nuevo desde cero, sino ajustar el resto de hoy. Dispara con: (a) pedir reorganizar/reprogramar el día, la tarde, la mañana o la agenda ("reorganiza mi tarde", "reprograma lo que me queda"); (b) mencionar tareas que no terminó en un día anterior ("no terminé las tareas de ayer", "no acabé el proyecto"); (c) expresar cansancio/fatiga/agotamiento y pedir (implícita o explícitamente) que se ajuste lo que queda del día en torno a eso. Misma salvedad que optimize_day: si el mensaje trae datos nuevos de horario para agregar, es import_schedule, no replan_day.
-- create_goal: el usuario expresa el deseo de empezar a hacer algo de forma recurrente o con un horizonte de tiempo, típicamente empezando con "quiero" + un verbo de actividad (entrenar, estudiar, leer, aprender, meditar, correr, practicar, etc.). Ej: "quiero entrenar tres veces esta semana", "quiero leer más este mes".
+- create_habit: el usuario expresa el deseo de empezar a hacer algo de forma recurrente, típicamente empezando con "quiero" + un verbo de actividad (entrenar, estudiar, leer, aprender, meditar, correr, practicar, etc.) Y una frecuencia semanal explícita (un número de veces, o "todos los días"/"a diario"). Ej: "quiero entrenar tres veces esta semana", "quiero leer todos los días". Si el usuario pide esto SIN decir cuántas veces por semana (ej. "quiero estudiar más", "quiero leer más este mes"), NO es create_habit — es clarify (ver abajo): nunca inventes una frecuencia.
 - import_schedule: el usuario pega o describe su horario (uno o más compromisos recurrentes con días/horas — trabajo, escuela, comidas, gimnasio — y/o eventos con fecha) y quiere que la app lo agregue automáticamente, en vez de solo preguntar o pedir un ajuste puntual sobre algo que ya existe. PRIORIDAD: esta clasificación gana sobre optimize_day y replan_day siempre que el mensaje incluya dos o más bloques concretos de día+hora, sin importar qué verbo haya usado el usuario para pedirlo (planificar, organizar, armar, ayudar) ni si literalmente dice la palabra "horario". Señal típica: menciona explícitamente "importar/cargar/subir/agregar mi horario", O describe varios compromisos con días y horas de un jalón (ej. "lunes escuela 9 a 2, martes escuela 7 a 2, ... gimnasio lunes miércoles y viernes"). Ej: "importa mi horario: trabajo de 9 a 6 lunes a viernes, gimnasio martes y jueves 7pm", "este es mi horario: ...", "ayúdame a planificar mi semana: lunes escuela de 9:30 a 2:35, martes escuela de 7 a 2, ...".
-- clarify: el usuario menciona una fecha límite o cambio sobre una tarea existente pero NO identifica cuál tarea por su nombre — nunca adivines a qué tarea se refiere. Ej: "tengo que terminar este proyecto mañana" (sin decir cuál proyecto/tarea).
+- clarify: (a) el usuario menciona una fecha límite o cambio sobre una tarea existente pero NO identifica cuál tarea por su nombre — nunca adivines a qué tarea se refiere. Ej: "tengo que terminar este proyecto mañana" (sin decir cuál proyecto/tarea). (b) el usuario quiere empezar un hábito recurrente (ver create_habit) pero no dijo cuántas veces por semana — nunca inventes un número. Ej: "quiero estudiar más", "quiero leer más este mes".
 - unrecognized: cualquier otro mensaje que no encaje claramente en las anteriores, incluyendo temas no relacionados con productividad/planificación (chistes, charla casual, preguntas generales).
 
 Reglas para los campos de la herramienta:
 - `note`: SOLO cuando action=replan_day. Usa "fatiga" si el usuario menciona estar cansado/agotado/sin energía/exhausto. Usa "tareas_previas_incompletas" si menciona tareas sin terminar de un día anterior. Omite el campo si ninguna aplica.
-- `goal_title`: SOLO cuando action=create_goal. El título del objetivo tal como lo expresó el usuario, capitalizado, sin punto final — nunca lo inventes ni cambies su significado.
-- `goal_horizon`: SOLO cuando action=create_goal. "semana" si menciona "esta semana", "mes" si menciona "este mes", "hoy" si menciona "hoy", si no — "largo_plazo".
+- `habit_title`: SOLO cuando action=create_habit. El título tal como lo expresó el usuario, capitalizado, sin punto final — nunca lo inventes ni cambies su significado.
+- `habit_frequency_per_week`: SOLO cuando action=create_habit. El número de veces por semana que el usuario dijo explícitamente (7 si dijo "todos los días"/"a diario"/"diariamente"). Si no dio ningún número, usa action=clarify en vez de este campo — nunca pongas un valor que el usuario no dijo.
 
 Hoy es {today}. No necesitas calcular fechas — el sistema ya resuelve "hoy" del lado del servidor."""
 
@@ -64,7 +64,7 @@ _TOOL = {
                     "whats_next",
                     "optimize_day",
                     "replan_day",
-                    "create_goal",
+                    "create_habit",
                     "import_schedule",
                     "clarify",
                     "unrecognized",
@@ -76,14 +76,13 @@ _TOOL = {
                 "enum": ["fatiga", "tareas_previas_incompletas"],
                 "description": "Solo si action=replan_day y aplica una de las dos señales. Omitir en cualquier otro caso.",
             },
-            "goal_title": {
+            "habit_title": {
                 "type": "string",
-                "description": "Solo si action=create_goal: el título del objetivo tal como lo dijo el usuario.",
+                "description": "Solo si action=create_habit: el título tal como lo dijo el usuario.",
             },
-            "goal_horizon": {
-                "type": "string",
-                "enum": ["hoy", "semana", "mes", "largo_plazo"],
-                "description": "Solo si action=create_goal.",
+            "habit_frequency_per_week": {
+                "type": "integer",
+                "description": "Solo si action=create_habit: cuántas veces por semana, tal como lo dijo el usuario (nunca inventado).",
             },
         },
         "required": ["action"],
@@ -124,7 +123,7 @@ def classify_intent(text: str, today: date_type) -> Intent:
         "whats_next",
         "optimize_day",
         "replan_day",
-        "create_goal",
+        "create_habit",
         "import_schedule",
         "clarify",
         "unrecognized",
@@ -139,7 +138,7 @@ def classify_intent(text: str, today: date_type) -> Intent:
     return Intent(
         action=action,
         target_date=target_date,
-        goal_title=data.get("goal_title") if action == "create_goal" else None,
-        goal_horizon=data.get("goal_horizon") if action == "create_goal" else None,
+        habit_title=data.get("habit_title") if action == "create_habit" else None,
+        habit_frequency_per_week=data.get("habit_frequency_per_week") if action == "create_habit" else None,
         note=data.get("note") if action == "replan_day" else None,
     )

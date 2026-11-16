@@ -9,8 +9,6 @@
 export type Priority = 'alta' | 'media' | 'baja';
 export type ConcentrationLevel = 'alta' | 'media' | 'baja';
 export type TaskStatus = 'pendiente' | 'completada' | 'pospuesta';
-export type GoalHorizon = 'hoy' | 'semana' | 'mes' | 'largo_plazo';
-export type GoalStatus = 'activo' | 'completado' | 'archivado';
 export type AvailabilityType = 'trabajo' | 'escuela' | 'personal' | 'comida' | 'aseo' | 'descanso' | 'otro';
 export type HabitStatus = 'activo' | 'pausado';
 export type ConfidenceLevel = 'alta' | 'media' | 'baja';
@@ -78,26 +76,6 @@ export interface Task {
   habit_id: string | null;
 }
 
-export interface Goal {
-  id: string;
-  title: string;
-  horizon: GoalHorizon;
-  status: GoalStatus;
-  confirmed_by_user: boolean;
-  created_at: string;
-}
-
-/**
- * GET/POST /v1/goals/{id}/streak|checkin — misma idea que Streak (arriba)
- * pero por objetivo, pedido por Daniel para dar seguimiento día con día
- * a cada meta y mostrar la racha en Mi día.
- */
-export interface GoalStreak {
-  current_streak: number;
-  checked_in_today: boolean;
-  completed_today: boolean;
-}
-
 export interface Habit {
   id: string;
   title: string;
@@ -106,7 +84,6 @@ export interface Habit {
   concentration_level: ConcentrationLevel;
   category: string | null;
   status: HabitStatus;
-  goal_id: string | null;
   created_at: string;
   updated_at: string;
 }
@@ -127,6 +104,23 @@ export interface HabitWeek {
   completed_this_week: number;
   remaining_to_suggest: number;
   suggested_sessions: SuggestedSession[];
+}
+
+/**
+ * GET /v1/habits/{id}/progress — una fila por semana (pedido por Daniel
+ * el 12 nov: "con gráficas mostrar el progreso en las semanas"), de más
+ * antigua a más reciente. Ver HabitProgressChart.tsx.
+ */
+export interface HabitProgressWeek {
+  week_start: string;
+  target_frequency_per_week: number;
+  confirmed: number;
+  completed: number;
+}
+
+export interface HabitProgress {
+  habit_id: string;
+  weeks: HabitProgressWeek[];
 }
 
 export interface PlanBlock {
@@ -233,7 +227,7 @@ export interface AssistantResponse {
   action: string;
   reply: string;
   day_plan: DayPlan | null;
-  goal: Goal | null;
+  habit: Habit | null;
   // Solo viene lleno cuando action=import_schedule y sí se logró extraer
   // algo — es una propuesta, todavía no se guardó nada (ver
   // AsistenteScreen.tsx, que la muestra con botones de confirmar/cancelar).

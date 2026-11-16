@@ -14,7 +14,7 @@ def test_optimize_via_assistant_actually_creates_a_day_plan(client, auth_headers
     assert persisted.json()["id"] == body["day_plan"]["id"]
 
 
-def test_quiero_entrenar_crea_un_objetivo_real(client, auth_headers):
+def test_quiero_entrenar_crea_un_habito_real(client, auth_headers):
     resp = client.post(
         "/v1/assistant/message",
         json={"message": "Quiero entrenar tres veces esta semana"},
@@ -22,12 +22,32 @@ def test_quiero_entrenar_crea_un_objetivo_real(client, auth_headers):
     )
     assert resp.status_code == 200
     body = resp.json()
-    assert body["action"] == "create_goal"
-    assert body["goal"]["horizon"] == "semana"
-    assert body["goal"]["confirmed_by_user"] is True
+    assert body["action"] == "create_habit"
+    assert body["habit"]["target_frequency_per_week"] == 3
 
-    goals = client.get("/v1/goals", headers=auth_headers).json()
-    assert any(g["id"] == body["goal"]["id"] for g in goals)
+    habits = client.get("/v1/habits", headers=auth_headers).json()
+    assert any(h["id"] == body["habit"]["id"] for h in habits)
+    # Se agregó solo al calendario de esta semana (auto-confirmación, ver
+    # habits_service.auto_confirm_due_sessions) sin que nadie tuviera que
+    # confirmar nada a mano.
+    tasks = client.get("/v1/tasks", headers=auth_headers).json()
+    assert any(t["habit_id"] == body["habit"]["id"] for t in tasks)
+
+
+def test_quiero_leer_mas_sin_frecuencia_pide_aclaracion_en_vez_de_inventar(client, auth_headers):
+    resp = client.post(
+        "/v1/assistant/message",
+        json={"message": "Quiero leer más este mes"},
+        headers=auth_headers,
+    )
+    assert resp.status_code == 200
+    body = resp.json()
+    assert body["action"] == "clarify"
+    assert body["habit"] is None
+    assert "veces" in body["reply"].lower()
+
+    habits = client.get("/v1/habits", headers=auth_headers).json()
+    assert habits == []
 
 
 def test_no_termine_las_tareas_de_ayer_replanifica_con_datos_reales(client, auth_headers):
@@ -64,7 +84,7 @@ def test_ambiguous_deadline_message_asks_for_clarification_without_changing_data
     body = resp.json()
     assert body["action"] == "clarify"
     assert body["day_plan"] is None
-    assert body["goal"] is None
+    assert body["habit"] is None
 
     # la tarea no se tocó sola
     unchanged = client.get(f"/v1/tasks/{task['id']}", headers=auth_headers).json()

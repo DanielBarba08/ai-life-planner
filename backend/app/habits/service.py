@@ -13,9 +13,9 @@ from datetime import datetime, time, timedelta
 
 from sqlalchemy.orm import Session
 
-from app.models.habit import Habit
+from app.models.habit import Habit, HabitStatus
 from app.models.task import Task, TaskStatus
-from app.schemas.habit import SuggestedSession
+from app.schemas.habit import HabitProgressWeek, SuggestedSession
 
 
 def monday_of(d: date_type) -> date_type:
@@ -55,7 +55,13 @@ def week_progress(db: Session, habit: Habit, week_start: date_type) -> dict:
     }
 
 
-def suggest_sessions(habit: Habit, week_start: date_type, count: int, today: date_type) -> list[SuggestedSession]:
+def suggest_sessions(
+    habit: Habit,
+    week_start: date_type,
+    count: int,
+    today: date_type,
+    exclude_dates: set[date_type] | None = None,
+) -> list[SuggestedSession]:
     """
     Reparte `count` sesiones sugeridas entre los días que quedan de la
     semana — de `today` (o `week_start`, lo que sea más tarde) al domingo
@@ -69,6 +75,15 @@ def suggest_sessions(habit: Habit, week_start: date_type, count: int, today: dat
     sesiones — máximo una por día — en vez de repetir un mismo día varias
     veces (bug reportado por Daniel el 8 nov: "se agregan todas las horas
     en un solo día").
+
+    `exclude_dates` son días que ya tienen una sesión CONFIRMADA de este
+    hábito esta semana (ver auto_confirm_due_sessions) — sin esto, un
+    hábito con `target_frequency_per_week` mayor a los días que quedan en
+    la semana (ej. 3x/semana creado un sábado, con solo 2 días
+    disponibles) volvería a sugerir esos mismos 2 días ya confirmados en
+    cada llamada siguiente, duplicando la sesión del mismo día — la
+    versión automática del bug del 8 nov, ahora disparada por cada
+    lectura en vez de por un tap manual.
     """
     week_end = week_start + timedelta(days=6)
     first_day = max(week_start, today)
@@ -76,6 +91,8 @@ def suggest_sessions(habit: Habit, week_start: date_type, count: int, today: dat
         return []
 
     available_days = [first_day + timedelta(days=i) for i in range((week_end - first_day).days + 1)]
+    if exclude_dates:
+        available_days = [d for d in available_days if d not in exclude_dates]
     chosen_days = sorted(available_days[: min(count, len(available_days))])
 
     return [
@@ -88,6 +105,82 @@ def suggest_sessions(habit: Habit, week_start: date_type, count: int, today: dat
         )
         for d in chosen_days
     ]
+
+
+def confirmed_dates_this_week(db: Session, habit: Habit, week_start: date_type) -> set[date_type]:
+    """Días de esta semana que ya tienen una tarea real confirmada de este
+    hábito — ver el docstring de suggest_sessions sobre por qué hace falta
+    excluirlos antes de volver a sugerir/confirmar."""
+    week_end = week_start + timedelta(days=6)
+    range_start = datetime.combine(week_start, time.min)
+    range_end = datetime.combine(week_end, time.max)
+    rows = (
+        db.query(Task.deadline)
+        .filter(Task.habit_id == habit.id, Task.deadline >= range_start, Task.deadline <= range_end)
+        .all()
+    )
+    return {deadline.date() for (deadline,) in rows if deadline is not None}
+
+
+def auto_confirm_due_sessions(db: Session, user_id: str, today: date_type) -> list[Task]:
+    """
+    Agrega solas al horario las sesiones que le falten a cada hábito
+    ACTIVO esta semana — pedido por Daniel el 12 nov ("que se agreguen al
+    horario") para no tener que entrar a Hábitos y tocar "confirmar" cada
+    semana. Se llama al leer cualquier vista que muestre hábitos o el
+    calendario (ver app/routers/habits.py y app/routers/planning.py), así
+    que como mucho tarda una lectura en reflejarse — es idempotente: si
+    ya no falta nada (`remaining_to_suggest == 0`, incluyendo el caso de
+    haberse llamado ya en el mismo request), no hace ninguna escritura.
+
+    Un hábito PAUSADO nunca se toca aquí — pausarlo es justo la forma que
+    tiene el usuario de decir "no quiero que esto me siga apareciendo
+    solo en el calendario esta semana".
+
+    Sigue sin inventar nada nuevo: reutiliza exactamente
+    suggest_sessions/confirm_sessions, los mismos que ya validaba el
+    flujo manual — la única diferencia es quién los dispara.
+    """
+    week_start = monday_of(today)
+    habits = db.query(Habit).filter(Habit.user_id == user_id, Habit.status == HabitStatus.ACTIVO).all()
+
+    created: list[Task] = []
+    for habit in habits:
+        progress = week_progress(db, habit, week_start)
+        remaining = progress["remaining_to_suggest"]
+        if remaining <= 0:
+            continue
+        sessions = suggest_sessions(
+            habit, week_start, remaining, today, exclude_dates=confirmed_dates_this_week(db, habit, week_start)
+        )
+        if sessions:
+            created.extend(confirm_sessions(db, habit, user_id, sessions))
+    return created
+
+
+def progress_history(db: Session, habit: Habit, today: date_type, weeks: int = 6) -> list[HabitProgressWeek]:
+    """
+    Progreso real de las últimas `weeks` semanas (incluyendo la actual),
+    de más antigua a más reciente — para la gráfica de "progreso en las
+    semanas" que pidió Daniel el 12 nov en Hábitos. Cada punto reutiliza
+    week_progress tal cual (mismas tareas reales con habit_id, nunca un
+    número inventado); semanas sin ninguna sesión confirmada simplemente
+    quedan en 0, no se rellenan con datos de otra semana.
+    """
+    current_monday = monday_of(today)
+    result: list[HabitProgressWeek] = []
+    for i in range(weeks - 1, -1, -1):
+        week_start = current_monday - timedelta(weeks=i)
+        progress = week_progress(db, habit, week_start)
+        result.append(
+            HabitProgressWeek(
+                week_start=week_start,
+                target_frequency_per_week=habit.target_frequency_per_week,
+                confirmed=progress["confirmed_this_week"],
+                completed=progress["completed_this_week"],
+            )
+        )
+    return result
 
 
 def confirm_sessions(db: Session, habit: Habit, user_id: str, sessions: list[SuggestedSession]) -> list[Task]:

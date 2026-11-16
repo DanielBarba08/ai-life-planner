@@ -31,11 +31,17 @@ def test_reorganiza_mi_dia_cansado_detecta_fatiga():
     assert intent.note == "fatiga"
 
 
-def test_quiero_entrenar_tres_veces_esta_semana_crea_objetivo():
+def test_quiero_entrenar_tres_veces_esta_semana_crea_habito():
     intent = parse("Quiero entrenar tres veces esta semana", TODAY)
-    assert intent.action == "create_goal"
-    assert intent.goal_horizon == "semana"
-    assert "entrenar" in intent.goal_title.lower()
+    assert intent.action == "create_habit"
+    assert intent.habit_frequency_per_week == 3
+    assert "entrenar" in intent.habit_title.lower()
+
+
+def test_quiero_leer_todos_los_dias_crea_habito_de_frecuencia_siete():
+    intent = parse("Quiero leer todos los días", TODAY)
+    assert intent.action == "create_habit"
+    assert intent.habit_frequency_per_week == 7
 
 
 def test_no_termine_las_tareas_de_ayer():
@@ -66,10 +72,11 @@ def test_mensaje_no_reconocido_no_inventa_accion():
     assert intent.action == "unrecognized"
 
 
-def test_goal_horizon_defaults_to_largo_plazo_sin_marco_temporal():
+def test_quiero_sin_frecuencia_pide_aclaracion_en_vez_de_inventar():
+    """Nunca se inventa una frecuencia por default — sección 14 del brief."""
     intent = parse("Quiero aprender a tocar guitarra", TODAY)
-    assert intent.action == "create_goal"
-    assert intent.goal_horizon == "largo_plazo"
+    assert intent.action == "clarify"
+    assert intent.habit_title is None
 
 
 def test_parser_is_accent_insensitive():

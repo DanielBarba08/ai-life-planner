@@ -4,12 +4,11 @@ import React, { useState } from 'react';
 import { Pressable, RefreshControl, ScrollView, StyleSheet, Text, View } from 'react-native';
 
 import { apiErrorMessage } from '../../api/client';
-import { goalsApi, planningApi, tasksApi } from '../../api/endpoints';
-import type { DayPlan, Goal, PlanBlock, Task } from '../../api/types';
+import { planningApi, tasksApi } from '../../api/endpoints';
+import type { DayPlan, PlanBlock, Task } from '../../api/types';
 import { Button } from '../../components/Button';
 import { Card } from '../../components/Card';
 import { ExplanationModal } from '../../components/ExplanationModal';
-import { GoalStreakRow } from '../../components/GoalStreakRow';
 import { Hero } from '../../components/Hero';
 import { QuickAddTaskModal } from '../../components/QuickAddTaskModal';
 import { Screen } from '../../components/Screen';
@@ -21,7 +20,6 @@ import { formatDurationMin, nowHHMM, todayIsoDate, wallClockTime } from '../../u
 
 const TODAY = todayIsoDate();
 
-const HORIZON_LABEL: Record<string, string> = { hoy: 'Hoy', semana: 'Esta semana', mes: 'Este mes', largo_plazo: 'Largo plazo' };
 const PRIORITY_RANK: Record<Task['priority'], number> = { alta: 0, media: 1, baja: 2 };
 
 export default function MiDiaScreen() {
@@ -160,8 +158,6 @@ export default function MiDiaScreen() {
   const mainColumn = (
     <>
       <Hero blocks={blocks} streak={streakQuery.data?.current_streak} hasPlanToday={streakQuery.data?.has_plan_today ?? false} />
-
-      <GoalsWidget />
 
       {nextBlock ? <NextUpCard block={nextBlock} /> : null}
 
@@ -348,73 +344,6 @@ function PriorityTasksWidget() {
   );
 }
 
-/**
- * "Rachas de objetivos" — vive ahora en la columna principal de Mi día
- * (antes era un widget solo de pantallas anchas) porque Daniel pidió
- * mostrar las rachas aquí precisamente para motivar a seguir con los
- * objetivos, y el teléfono es donde más se abre esta pantalla cada día.
- *
- * Sin porcentaje de progreso: Goal no trae ningún dato de ese tipo del
- * backend (ver api/types.ts) — inventar uno rompería el principio de
- * "nunca inventar" del resto de la app. Lo real y medible aquí es la
- * racha (GoalStreakRow, a partir de GoalCheckin) y el check-in diario de
- * "¿cumpliste hoy?" que la alimenta, igual que con los hábitos
- * (ProgressRing en HabitosScreen.tsx, que sí tiene progreso semanal real).
- *
- * No se pinta nada si no hay objetivos activos — no hay nada que motivar
- * todavía.
- */
-function GoalsWidget() {
-  const { color } = useTheme();
-  const goalsQuery = useQuery<Goal[]>({ queryKey: ['goals', 'activo'], queryFn: () => goalsApi.list({ status: 'activo' }) });
-  const top = (goalsQuery.data ?? []).slice(0, 5);
-  const styles = React.useMemo(
-    () =>
-      StyleSheet.create({
-        card: { marginBottom: spacing.md },
-        title: { ...type.h2, color: color.ink, marginBottom: spacing.sm },
-        item: { marginBottom: spacing.sm, paddingBottom: spacing.sm, borderBottomWidth: 1, borderBottomColor: color.line },
-        lastItem: { marginBottom: 0, paddingBottom: 0, borderBottomWidth: 0 },
-        row: { flexDirection: 'row', alignItems: 'center' },
-        iconCircle: {
-          width: 26,
-          height: 26,
-          borderRadius: radius.pill,
-          backgroundColor: color.accentSoft,
-          alignItems: 'center',
-          justifyContent: 'center',
-          marginRight: spacing.sm,
-        },
-        rowTitle: { ...type.body, color: color.ink, flex: 1 },
-        horizon: { ...type.caption, color: color.muted, marginTop: 1 },
-      }),
-    [color]
-  );
-
-  if (top.length === 0) return null;
-
-  return (
-    <Card style={styles.card}>
-      <Text style={styles.title}>Rachas de objetivos</Text>
-      {top.map((g, i) => (
-        <View key={g.id} style={[styles.item, i === top.length - 1 && styles.lastItem]}>
-          <View style={styles.row}>
-            <View style={styles.iconCircle}>
-              <Ionicons name="flag" size={12} color={color.accent} />
-            </View>
-            <View style={{ flex: 1 }}>
-              <Text style={styles.rowTitle} numberOfLines={1}>
-                {g.title}
-              </Text>
-              <Text style={styles.horizon}>{HORIZON_LABEL[g.horizon] ?? g.horizon}</Text>
-            </View>
-          </View>
-          <GoalStreakRow goal={g} />
-        </View>
-      ))}
-    </Card>
-  );
-}
 
 function BlockRow({
   block,

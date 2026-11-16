@@ -8,7 +8,6 @@ from app.routers import (
     availability,
     events,
     explanations,
-    goals,
     habits,
     planning,
     preferences,
@@ -24,12 +23,13 @@ app = FastAPI(
     title="AI Life Planner API",
     description=(
         "Backend del AI Life Planner — Módulo 1 (auth, perfil, disponibilidad) "
-        "+ Módulo 2 (eventos, tareas, objetivos) + Módulo 3 (Planning Engine) "
+        "+ Módulo 2 (eventos, tareas) + Módulo 3 (Planning Engine) "
         "+ Módulo 4 (asistente conversacional) + Evidence Engine (citas "
         "científicas reales y verificadas en el panel '¿Por qué?') + Personal "
         "Productivity Model (confianza que aprende del historial real de "
-        "finalización) + Fase 5 (hábitos avanzados, con confirmación "
-        "explícita del usuario antes de crear cualquier sesión)."
+        "finalización) + Fase 5 (hábitos avanzados — reemplazan a Objetivos, "
+        "ver migración 2f19006119ec — con sesiones que se agregan solas al "
+        "horario cada semana)."
     ),
     version="0.6.0",
 )
@@ -50,7 +50,6 @@ app.include_router(preferences.router)
 app.include_router(availability.router)
 app.include_router(events.router)
 app.include_router(tasks.router)
-app.include_router(goals.router)
 app.include_router(habits.router)
 app.include_router(planning.router)
 app.include_router(explanations.router)

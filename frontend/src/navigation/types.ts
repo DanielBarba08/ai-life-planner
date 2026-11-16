@@ -21,7 +21,6 @@ export type AjustesStackParamList = {
   AjustesHome: undefined;
   Tareas: undefined;
   Eventos: undefined;
-  Objetivos: undefined;
   Disponibilidad: undefined;
   Habitos: undefined;
   ComoDecide: undefined;

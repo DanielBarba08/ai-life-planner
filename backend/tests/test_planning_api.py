@@ -184,6 +184,15 @@ def test_optimize_only_schedules_habit_sessions_on_their_own_day(client, auth_he
     )
     habit_id = habit_resp.json()["id"]
 
+    # Crear el hábito ya lo auto-confirmó solo para la semana real actual
+    # (ver habits_service.auto_confirm_due_sessions, pedido por Daniel el
+    # 12 nov) — se borran esas sesiones para dejar lugar y poder fabricar
+    # a mano, de forma determinista, las dos fechas concretas que esta
+    # prueba necesita (día de "Optimizar" vs. otro día de la semana).
+    for t in client.get("/v1/tasks", headers=auth_headers).json():
+        if t.get("habit_id") == habit_id:
+            client.delete(f"/v1/tasks/{t['id']}", headers=auth_headers)
+
     day_a, day_b = "2026-11-17", "2026-11-19"  # martes y jueves, arbitrarios y fijos
     sessions = [
         {

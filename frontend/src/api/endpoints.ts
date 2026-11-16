@@ -11,11 +11,8 @@ import type {
   ExplanationRead,
   FixedEvent,
   GeneralEvidenceRead,
-  Goal,
-  GoalHorizon,
-  GoalStatus,
-  GoalStreak,
   Habit,
+  HabitProgress,
   HabitStatus,
   HabitWeek,
   Priority,
@@ -96,19 +93,7 @@ export const tasksApi = {
   remove: (id: string) => api.delete(`/v1/tasks/${id}`),
 };
 
-// -- goals -------------------------------------------------------------------
-export const goalsApi = {
-  list: (params?: { status?: GoalStatus }) => api.get<Goal[]>('/v1/goals', { params }).then((r) => r.data),
-  create: (body: { title: string; horizon: GoalHorizon }) => api.post<Goal>('/v1/goals', body).then((r) => r.data),
-  update: (id: string, body: Partial<{ title: string; horizon: GoalHorizon; status: GoalStatus }>) =>
-    api.patch<Goal>(`/v1/goals/${id}`, body).then((r) => r.data),
-  remove: (id: string) => api.delete(`/v1/goals/${id}`),
-  streak: (id: string) => api.get<GoalStreak>(`/v1/goals/${id}/streak`).then((r) => r.data),
-  checkin: (id: string, completed: boolean) =>
-    api.post<GoalStreak>(`/v1/goals/${id}/checkin`, { completed }).then((r) => r.data),
-};
-
-// -- habits (Fase 5 — hábitos avanzados) --------------------------------------
+// -- habits (Fase 5 — hábitos avanzados; reemplazan a Objetivos desde el 12 nov) --
 export const habitsApi = {
   list: (params?: { status?: HabitStatus }) => api.get<Habit[]>('/v1/habits', { params }).then((r) => r.data),
   create: (body: {
@@ -117,7 +102,6 @@ export const habitsApi = {
     duration_est_min: number;
     concentration_level?: ConcentrationLevel;
     category?: string | null;
-    goal_id?: string | null;
   }) => api.post<Habit>('/v1/habits', body).then((r) => r.data),
   update: (
     id: string,
@@ -128,13 +112,14 @@ export const habitsApi = {
       concentration_level: ConcentrationLevel;
       category: string | null;
       status: HabitStatus;
-      goal_id: string | null;
     }>,
   ) => api.patch<Habit>(`/v1/habits/${id}`, body).then((r) => r.data),
   remove: (id: string) => api.delete(`/v1/habits/${id}`),
   week: (id: string) => api.get<HabitWeek>(`/v1/habits/${id}/week`).then((r) => r.data),
   confirmWeek: (id: string, sessions: SuggestedSession[]) =>
     api.post<Task[]>(`/v1/habits/${id}/confirm-week`, { sessions }).then((r) => r.data),
+  progress: (id: string, weeks = 6) =>
+    api.get<HabitProgress>(`/v1/habits/${id}/progress`, { params: { weeks } }).then((r) => r.data),
 };
 
 // -- planning ----------------------------------------------------------------

@@ -5,11 +5,26 @@ from sqlalchemy.orm import Session
 
 from app.database import get_db
 from app.deps import get_current_user
+from app.habits import service as habits_service
 from app.models.user import User
 from app.planning import service
 from app.schemas.planning import DayPlanRead, NowResponse, OptimizeRequest, ReplanRequest, StreakRead, WeekDayRead
 
 router = APIRouter(prefix="/v1/planning", tags=["planning"])
+
+
+def _auto_confirm_habits(current_user: User, db: Session) -> None:
+    """
+    Dispara habits_service.auto_confirm_due_sessions antes de cualquier
+    lectura/generación de plan — así un hábito aparece en el calendario
+    (Mi día, Mi semana, "qué hago ahora") sin que el usuario tenga que
+    abrir Hábitos y confirmar nada (pedido por Daniel el 12 nov). Siempre
+    con la fecha real de HOY (local_now), nunca con la fecha del plan que
+    se esté pidiendo — "esta semana" es sobre el calendario real, no sobre
+    qué día se está mirando.
+    """
+    today = service.local_now(current_user).date()
+    habits_service.auto_confirm_due_sessions(db, current_user.id, today)
 
 
 @router.post("/optimize", response_model=DayPlanRead)
@@ -23,6 +38,7 @@ def optimize_day(
     del día desde cero a partir de eventos, disponibilidad, tareas
     pendientes y preferencias — nunca toca días distintos al solicitado.
     """
+    _auto_confirm_habits(current_user, db)
     result = service.generate_plan(db, current_user, payload.date)
     day_plan = service.persist_plan(db, current_user, payload.date, result)
     return day_plan
@@ -56,6 +72,7 @@ def replan_day(
     — el Módulo 4 (asistente conversacional) lo usará para redactar la
     respuesta en lenguaje natural.
     """
+    _auto_confirm_habits(current_user, db)
     now = service.local_now(current_user)
     result = service.generate_replan(db, current_user, payload.date, now)
     day_plan = service.persist_plan(db, current_user, payload.date, result)
@@ -68,6 +85,7 @@ def whats_next_now(
     db: Session = Depends(get_db),
 ):
     """'¿Qué hago ahora?' — sección 18 del brief."""
+    _auto_confirm_habits(current_user, db)
     now = service.local_now(current_user)
     return service.whats_next(db, current_user, now)
 
@@ -97,4 +115,5 @@ def read_week(
     si ya tienen un plan generado. Nunca genera planes nuevos — ver
     service.get_week.
     """
+    _auto_confirm_habits(current_user, db)
     return service.get_week(db, current_user, start_date)

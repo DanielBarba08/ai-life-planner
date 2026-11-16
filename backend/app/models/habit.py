@@ -18,20 +18,22 @@ class Habit(Base):
     """
     Hábito recurrente (Fase 5 del roadmap — "hábitos avanzados").
 
-    Un hábito NUNCA coloca tareas en el calendario por sí mismo: solo
-    describe la meta recurrente ("entrenar 3 veces por semana"). Las
-    sesiones concretas de una semana se PROPONEN
-    (`app/habits/service.py::suggest_week`) y solo se convierten en tareas
-    reales de verdad cuando el usuario las confirma explícitamente
-    (`confirm_week` → filas reales en `tasks`, nunca automático) — mismo
-    principio que ya aplica a `Goal.confirmed_by_user` (punto 14 del
-    brief: "NO debe crear objetivos arbitrarios sin confirmación del
-    usuario"), extendido aquí a las sesiones que genera un hábito.
+    Hasta el 12 nov existía además un modelo "Objetivo" (Goal) separado,
+    más ligero, con check-in diario manual. Daniel pidió eliminarlo
+    ("siento que es similar a los hábitos") y fusionarlo aquí — un hábito
+    ya cubre esa misma necesidad (meta recurrente + progreso real) y de
+    sobra, así que `Habit` es ahora el único lugar para "quiero hacer algo
+    de forma recurrente" en toda la app (ver migración
+    2f19006119ec_elimina_objetivos_*.py).
 
-    `goal_id` es opcional: un hábito puede nacer de un objetivo existente
-    (ej. el objetivo "Entrenar tres veces esta semana" del asistente,
-    sección 16 del brief) o crearse directo desde Ajustes → Hábitos, sin
-    pasar por un objetivo.
+    Las sesiones concretas de una semana se PROPONEN
+    (`app/habits/service.py::suggest_sessions`) y se confirman
+    automáticamente cada semana para cualquier hábito activo
+    (`auto_confirm_due_sessions`, pedido por Daniel el 12 nov: "que se
+    agreguen al horario" sin tener que entrar a Hábitos a confirmar a
+    mano) — siguen sin inventar un día: se reparten con el mismo criterio
+    de siempre (`suggest_sessions`), solo que ya no esperan a que el
+    usuario dispare la confirmación.
     """
 
     __tablename__ = "habits"
@@ -39,9 +41,6 @@ class Habit(Base):
     id: Mapped[str] = mapped_column(String(36), primary_key=True, default=lambda: str(uuid.uuid4()))
     user_id: Mapped[str] = mapped_column(
         String(36), ForeignKey("users.id", ondelete="CASCADE"), nullable=False, index=True
-    )
-    goal_id: Mapped[str | None] = mapped_column(
-        String(36), ForeignKey("goals.id", ondelete="SET NULL"), nullable=True
     )
 
     title: Mapped[str] = mapped_column(String(200), nullable=False)
@@ -60,4 +59,3 @@ class Habit(Base):
     updated_at: Mapped[datetime] = mapped_column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
 
     user: Mapped["User"] = relationship()
-    goal: Mapped["Goal | None"] = relationship()

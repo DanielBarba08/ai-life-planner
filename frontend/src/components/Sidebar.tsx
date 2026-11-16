@@ -9,7 +9,7 @@ import { radius, spacing, type } from '../theme/tokens';
 /**
  * A dónde navega cada ítem del menú lateral. "Ajustes" es el único tab que
  * es en realidad un stack (ver navigation/AjustesStack.tsx) — por eso
- * puede llevar un `screen` nested (Tareas/Objetivos/AjustesHome viven ahí,
+ * puede llevar un `screen` nested (Tareas/Eventos/AjustesHome viven ahí,
  * no como tabs propios, para no tocar MainTabParamList ni la barra
  * inferior del teléfono).
  */
@@ -17,7 +17,7 @@ export type SidebarDestination =
   | { tab: 'MiDia' }
   | { tab: 'MiSemana' }
   | { tab: 'Asistente' }
-  | { tab: 'Ajustes'; screen?: 'AjustesHome' | 'Tareas' | 'Eventos' | 'Objetivos' | 'Disponibilidad' | 'Habitos' };
+  | { tab: 'Ajustes'; screen?: 'AjustesHome' | 'Tareas' | 'Eventos' | 'Disponibilidad' | 'Habitos' };
 
 interface SidebarItem {
   key: string;
@@ -55,14 +55,6 @@ const ITEMS: SidebarItem[] = [
     label: 'Eventos fijos',
     dest: { tab: 'Ajustes', screen: 'Eventos' },
     matchRoutes: ['Eventos'],
-  },
-  {
-    key: 'objetivos',
-    icon: 'flag-outline',
-    activeIcon: 'flag',
-    label: 'Objetivos',
-    dest: { tab: 'Ajustes', screen: 'Objetivos' },
-    matchRoutes: ['Objetivos'],
   },
   {
     key: 'disponibilidad',

@@ -5,7 +5,7 @@ from typing import Annotated, Literal, Union
 from pydantic import BaseModel, ConfigDict, Field, field_validator
 
 from app.models.availability import AvailabilityType
-from app.schemas.goal import GoalRead
+from app.schemas.habit import HabitRead
 from app.schemas.planning import DayPlanRead
 
 
@@ -83,7 +83,7 @@ class AssistantMessageResponse(BaseModel):
     action: str
     reply: str
     day_plan: DayPlanRead | None = None
-    goal: GoalRead | None = None
+    habit: HabitRead | None = None
     # Solo se llena cuando action=import_schedule y sí se logró extraer
     # algo: es una PROPUESTA, nada de esto se guardó todavía — el
     # frontend la muestra con un botón de confirmar/cancelar y, si el

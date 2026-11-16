@@ -1,6 +1,6 @@
 """
 Despacha una Intent (ver intents.py) contra los servicios reales del
-Módulo 2 (goals) y del Módulo 3 (planning) — nunca contra datos
+Módulo 2 (hábitos) y del Módulo 3 (planning) — nunca contra datos
 inventados. Esta es la pieza que hace cierto el punto 16 del brief: "La
 IA debe utilizar los datos reales de la aplicación. NO debe responder
 únicamente con texto genérico."
@@ -14,10 +14,12 @@ from sqlalchemy.orm import Session
 from app.assistant import parser, schedule_extractor
 from app.assistant.intents import Intent
 from app.assistant.llm_client import LLMUnavailable
+from app.habits import service as habits_service
 from app.models.availability import AvailabilityBlock
 from app.models.day_plan import DayPlan
 from app.models.event import FixedEvent
-from app.models.goal import Goal
+from app.models.habit import Habit
+from app.models.task import ConcentrationLevel
 from app.models.user import User
 from app.planning import service as planning_service
 from app.schemas.assistant import ScheduleItem, ScheduleItemAvailability
@@ -28,6 +30,20 @@ EXAMPLES_HELP = (
     "\"optimiza mi día\", \"no terminé las tareas de ayer\", "
     "\"quiero entrenar tres veces esta semana\", o \"importa mi horario: ...\"."
 )
+
+# Duración y concentración por default cuando el asistente crea un
+# hábito desde el chat (ej. "quiero entrenar tres veces esta semana") —
+# el usuario nunca da esos dos datos en una frase así, así que en vez de
+# bloquear la creación pidiéndolos uno por uno (lo que convertiría una
+# sola frase en un interrogatorio), se usa un default razonable Y SE
+# AVISA explícitamente en la respuesta (ver _format_habit_created) para
+# que quede claro que es un valor editable, no un dato inventado en
+# silencio — mismo espíritu del punto 14 del brief, aplicado a lo que de
+# verdad hace falta para poder crear la fila.
+_DEFAULT_HABIT_DURATION_MIN = 30
+_DEFAULT_HABIT_CONCENTRATION = ConcentrationLevel.MEDIA
+
+_WEEKDAY_NAMES = ["lunes", "martes", "miércoles", "jueves", "viernes", "sábado", "domingo"]
 
 IMPORT_SCHEDULE_NO_LLM_REPLY = (
     "Para importar un horario completo necesito que el servidor tenga configurada una API key de Claude — "
@@ -73,13 +89,13 @@ def handle_message(db: Session, user: User, text: str) -> dict:
 
     if intent.action == "whats_next":
         result = planning_service.whats_next(db, user, now)
-        return {"action": intent.action, "reply": result["message"], "day_plan": None, "goal": None}
+        return {"action": intent.action, "reply": result["message"], "day_plan": None, "habit": None}
 
     if intent.action == "optimize_day":
         result = planning_service.generate_plan(db, user, intent.target_date)
         day_plan = planning_service.persist_plan(db, user, intent.target_date, result)
         reply = f"Listo, armé tu día: {_format_plan_summary(day_plan)}."
-        return {"action": intent.action, "reply": reply, "day_plan": day_plan, "goal": None}
+        return {"action": intent.action, "reply": reply, "day_plan": day_plan, "habit": None}
 
     if intent.action == "replan_day":
         result = planning_service.generate_replan(db, user, intent.target_date, now)
@@ -94,24 +110,38 @@ def handle_message(db: Session, user: User, text: str) -> dict:
                 "según tu energía reportada (eso es una función de una fase futura), pero puedes editar "
                 "o posponer cualquier bloque a mano."
             )
-        return {"action": intent.action, "reply": reply, "day_plan": day_plan, "goal": None}
+        return {"action": intent.action, "reply": reply, "day_plan": day_plan, "habit": None}
 
-    if intent.action == "create_goal":
-        goal = Goal(
+    if intent.action == "create_habit":
+        habit = Habit(
             user_id=user.id,
-            title=intent.goal_title,
-            horizon=intent.goal_horizon,
-            confirmed_by_user=True,
+            title=intent.habit_title,
+            target_frequency_per_week=intent.habit_frequency_per_week,
+            duration_est_min=_DEFAULT_HABIT_DURATION_MIN,
+            concentration_level=_DEFAULT_HABIT_CONCENTRATION,
         )
-        db.add(goal)
+        db.add(habit)
         db.commit()
-        db.refresh(goal)
+        db.refresh(habit)
+
+        # Lo agrega al calendario de esta semana de inmediato (no espera a
+        # que el usuario abra Hábitos o Mi día — pedido por Daniel el 12
+        # nov: "que se agreguen al horario") y avisa en qué días quedó,
+        # para que la duración/concentración por default no quede
+        # escondida: el usuario ve exactamente qué se creó y puede
+        # ajustarla en Hábitos.
+        created = habits_service.auto_confirm_due_sessions(db, user.id, today)
+        this_habit_days = sorted(t.deadline.date() for t in created if t.habit_id == habit.id)
+        dias_txt = ", ".join(_WEEKDAY_NAMES[d.weekday()] for d in this_habit_days)
+
         reply = (
-            f"Agregué el objetivo \"{goal.title}\" (horizonte: {intent.goal_horizon}). "
-            "Todavía no lo divido en sesiones programadas automáticamente — puedes crear tareas concretas "
-            "para él cuando quieras que aparezcan en tu día."
+            f"Agregué el hábito \"{habit.title}\" ({habit.target_frequency_per_week}x por semana, "
+            f"{_DEFAULT_HABIT_DURATION_MIN} min por sesión — ajusta la duración o la concentración cuando "
+            "quieras en Hábitos)."
         )
-        return {"action": intent.action, "reply": reply, "day_plan": None, "goal": goal}
+        if dias_txt:
+            reply += f" Ya quedó en tu calendario esta semana: {dias_txt}."
+        return {"action": intent.action, "reply": reply, "day_plan": None, "habit": habit}
 
     if intent.action == "import_schedule":
         try:
@@ -121,7 +151,7 @@ def handle_message(db: Session, user: User, text: str) -> dict:
                 "action": intent.action,
                 "reply": IMPORT_SCHEDULE_NO_LLM_REPLY,
                 "day_plan": None,
-                "goal": None,
+                "habit": None,
                 "pending_import": None,
             }
         if not items:
@@ -129,26 +159,34 @@ def handle_message(db: Session, user: User, text: str) -> dict:
                 "action": intent.action,
                 "reply": IMPORT_SCHEDULE_EMPTY_REPLY,
                 "day_plan": None,
-                "goal": None,
+                "habit": None,
                 "pending_import": None,
             }
         return {
             "action": intent.action,
             "reply": _format_schedule_preview(items),
             "day_plan": None,
-            "goal": None,
+            "habit": None,
             "pending_import": items,
         }
 
     if intent.action == "clarify":
-        reply = (
-            "Entendí que tienes una fecha límite nueva, pero no adivino sola a qué tarea se refiere para no "
-            "cambiar algo que no me pediste. ¿Puedes decirme el nombre exacto de la tarea? Mientras tanto, "
-            "también puedes editar su fecha límite directamente desde la tarea."
-        )
-        return {"action": intent.action, "reply": reply, "day_plan": None, "goal": None}
+        if intent.note and intent.note.startswith("frecuencia_habito_sin_especificar:"):
+            title = intent.note.split(":", 1)[1]
+            reply = (
+                f"Para agregar \"{title}\" como hábito necesito saber cuántas veces por semana — no quiero "
+                "inventar un número que no dijiste. ¿Cuántas veces a la semana quieres hacerlo? (por ejemplo, "
+                "\"tres veces\" o \"todos los días\")."
+            )
+        else:
+            reply = (
+                "Entendí que tienes una fecha límite nueva, pero no adivino sola a qué tarea se refiere para no "
+                "cambiar algo que no me pediste. ¿Puedes decirme el nombre exacto de la tarea? Mientras tanto, "
+                "también puedes editar su fecha límite directamente desde la tarea."
+            )
+        return {"action": intent.action, "reply": reply, "day_plan": None, "habit": None}
 
-    return {"action": "unrecognized", "reply": EXAMPLES_HELP, "day_plan": None, "goal": None}
+    return {"action": "unrecognized", "reply": EXAMPLES_HELP, "day_plan": None, "habit": None}
 
 
 def import_schedule_items(db: Session, user: User, items: list[ScheduleItem]) -> dict:

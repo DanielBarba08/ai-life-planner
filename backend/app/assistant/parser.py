@@ -45,10 +45,43 @@ def _normalize(text: str) -> str:
 
 
 _FATIGUE_WORDS = ("cansad", "agotad", "exhaust")
-_GOAL_TRIGGER_WORDS = ("entrenar", "estudiar", "leer", "aprender", "meditar", "correr", "practicar")
+_HABIT_TRIGGER_WORDS = ("entrenar", "estudiar", "leer", "aprender", "meditar", "correr", "practicar")
 
 _DAY_NAME_WORDS = ("lunes", "martes", "miercoles", "jueves", "viernes", "sabado", "domingo")
 _TIME_PATTERN = re.compile(r"\b\d{1,2}(:\d{2})?\s*(am|pm)\b|\b\d{1,2}:\d{2}\b")
+
+# Número de veces por semana que el usuario mencionó explícitamente — ver
+# _extract_weekly_frequency más abajo. Nunca se adivina una por default:
+# si no aparece ninguna de estas señales, el mensaje se clasifica como
+# "clarify" en vez de inventar una frecuencia (punto 14 del brief).
+_FREQUENCY_WORDS = {
+    "una": 1,
+    "un": 1,
+    "uno": 1,
+    "dos": 2,
+    "tres": 3,
+    "cuatro": 4,
+    "cinco": 5,
+    "seis": 6,
+    "siete": 7,
+}
+
+
+def _extract_weekly_frequency(norm: str) -> int | None:
+    """"Todos los días"/"cada día"/"a diario"/"diariamente" → 7. Si no,
+    busca un número (dígito o palabra) seguido de "vez"/"veces" —
+    "3 veces", "tres veces". Devuelve None si no encuentra ninguna señal
+    explícita, nunca un número por default."""
+    if re.search(r"\btodos los dias\b|\bcada dia\b|\ba diario\b|\bdiariamente\b", norm):
+        return 7
+    digit_match = re.search(r"\b(\d{1,2})\s*vec", norm)
+    if digit_match:
+        n = int(digit_match.group(1))
+        return n if 1 <= n <= 14 else None
+    word_match = re.search(r"\b(" + "|".join(_FREQUENCY_WORDS) + r")\s+vec", norm)
+    if word_match:
+        return _FREQUENCY_WORDS[word_match.group(1)]
+    return None
 
 
 def _looks_like_schedule_dump(norm: str) -> bool:
@@ -117,23 +150,21 @@ def parse_rule_based(text: str, today: date_type) -> Intent:
     if re.search(r"\b(optimiza|arma|planifica)\b.*\b(dia|agenda)\b", norm):
         return Intent(action="optimize_day", target_date=today)
 
-    # "Quiero entrenar tres veces esta semana" / "quiero estudiar más" — sección 14.
-    # El objetivo se crea con confirmed_by_user=True porque el propio
-    # usuario lo está pidiendo explícitamente en este mensaje (no es el
-    # sistema proponiendo algo por su cuenta).
-    if norm.startswith("quiero ") and any(w in norm for w in _GOAL_TRIGGER_WORDS):
-        if "esta semana" in norm:
-            horizon = "semana"
-        elif "este mes" in norm:
-            horizon = "mes"
-        elif "hoy" in norm:
-            horizon = "hoy"
-        else:
-            horizon = "largo_plazo"
+    # "Quiero entrenar tres veces esta semana" / "quiero estudiar más" —
+    # sección 14. Se crea directo como hábito (fusionado con Objetivos el
+    # 12 nov, ver app/models/habit.py) porque el propio usuario lo está
+    # pidiendo explícitamente en este mensaje — pero solo si dio una
+    # frecuencia semanal real: "quiero estudiar más" sin ningún número no
+    # alcanza para crear nada sin inventar cuántas veces, así que se pide
+    # aclaración en vez de adivinar (punto 14 del brief).
+    if norm.startswith("quiero ") and any(w in norm for w in _HABIT_TRIGGER_WORDS):
         title = raw[0].upper() + raw[1:]
         if title.endswith("."):
             title = title[:-1]
-        return Intent(action="create_goal", goal_title=title, goal_horizon=horizon)
+        frequency = _extract_weekly_frequency(norm)
+        if frequency is None:
+            return Intent(action="clarify", note=f"frecuencia_habito_sin_especificar:{title}")
+        return Intent(action="create_habit", habit_title=title, habit_frequency_per_week=frequency)
 
     # "Tengo que terminar este proyecto mañana" — declara una fecha límite
     # sobre una tarea existente, pero adivinar CUÁL tarea (por texto

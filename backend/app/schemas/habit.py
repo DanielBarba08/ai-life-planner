@@ -13,7 +13,6 @@ class HabitCreate(BaseModel):
     duration_est_min: int = Field(gt=0, le=24 * 60)
     concentration_level: ConcentrationLevel = ConcentrationLevel.MEDIA
     category: str | None = Field(default=None, max_length=80)
-    goal_id: str | None = None
 
 
 class HabitUpdate(BaseModel):
@@ -23,7 +22,6 @@ class HabitUpdate(BaseModel):
     concentration_level: ConcentrationLevel | None = None
     category: str | None = None
     status: HabitStatus | None = None
-    goal_id: str | None = None
 
 
 class HabitRead(BaseModel):
@@ -36,7 +34,6 @@ class HabitRead(BaseModel):
     concentration_level: ConcentrationLevel
     category: str | None
     status: HabitStatus
-    goal_id: str | None
     created_at: datetime
     updated_at: datetime
 
@@ -77,3 +74,24 @@ class HabitWeekRead(BaseModel):
 
 class ConfirmWeekRequest(BaseModel):
     sessions: list[SuggestedSession]
+
+
+class HabitProgressWeek(BaseModel):
+    """
+    Una semana dentro de GET /v1/habits/{id}/progress (pedido por Daniel
+    el 12 nov: "con gráficas mostrar el progreso en las semanas") — mismos
+    tres números que ya calcula week_progress para la semana actual
+    (ver app/habits/service.py), reutilizados sin inventar nada nuevo,
+    solo repetidos para cada una de las semanas anteriores que pide la
+    gráfica.
+    """
+
+    week_start: date_type
+    target_frequency_per_week: int
+    confirmed: int
+    completed: int
+
+
+class HabitProgressRead(BaseModel):
+    habit_id: str
+    weeks: list[HabitProgressWeek]

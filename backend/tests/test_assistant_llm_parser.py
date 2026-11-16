@@ -108,7 +108,7 @@ def test_clasifica_whats_next(monkeypatch):
 
     assert intent.action == "whats_next"
     assert intent.target_date is None
-    assert intent.goal_title is None
+    assert intent.habit_title is None
     assert intent.note is None
 
 
@@ -136,17 +136,17 @@ def test_replan_day_con_nota_de_fatiga(monkeypatch):
     assert intent.note == "fatiga"
 
 
-def test_create_goal_con_titulo_y_horizonte(monkeypatch):
+def test_create_habit_con_titulo_y_frecuencia(monkeypatch):
     fake = _FakeAnthropicClient(
-        next_input={"action": "create_goal", "goal_title": "Meditar todos los días", "goal_horizon": "largo_plazo"}
+        next_input={"action": "create_habit", "habit_title": "Meditar todos los días", "habit_frequency_per_week": 7}
     )
     monkeypatch.setattr(llm_client.anthropic, "Anthropic", lambda api_key: fake)
 
     intent = llm_client.classify_intent("quiero meditar todos los días", TODAY)
 
-    assert intent.action == "create_goal"
-    assert intent.goal_title == "Meditar todos los días"
-    assert intent.goal_horizon == "largo_plazo"
+    assert intent.action == "create_habit"
+    assert intent.habit_title == "Meditar todos los días"
+    assert intent.habit_frequency_per_week == 7
     assert intent.target_date is None
 
 
@@ -154,14 +154,14 @@ def test_note_se_ignora_fuera_de_replan_day(monkeypatch):
     # si el modelo manda un campo fuera de lo que aplica a la acción (no
     # debería, por el prompt, pero no confiamos ciegamente), lo
     # descartamos en vez de propagarlo a un Intent que no lo espera.
-    fake = _FakeAnthropicClient(next_input={"action": "whats_next", "note": "fatiga", "goal_title": "algo"})
+    fake = _FakeAnthropicClient(next_input={"action": "whats_next", "note": "fatiga", "habit_title": "algo"})
     monkeypatch.setattr(llm_client.anthropic, "Anthropic", lambda api_key: fake)
 
     intent = llm_client.classify_intent("¿qué hago ahora?", TODAY)
 
     assert intent.action == "whats_next"
     assert intent.note is None
-    assert intent.goal_title is None
+    assert intent.habit_title is None
 
 
 def test_accion_fuera_del_contrato_cae_a_llmunavailable(monkeypatch):
@@ -228,7 +228,7 @@ def test_llm_real_clasifica_los_siete_ejemplos_del_brief(monkeypatch):
         ("optimiza mi día", "optimize_day"),
         ("reorganiza mi tarde", "replan_day"),
         ("no terminé las tareas de ayer", "replan_day"),
-        ("quiero entrenar tres veces esta semana", "create_goal"),
+        ("quiero entrenar tres veces esta semana", "create_habit"),
         ("tengo que terminar este proyecto mañana", "clarify"),
         ("cuéntame un chiste", "unrecognized"),
     ]

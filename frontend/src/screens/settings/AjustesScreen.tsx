@@ -19,7 +19,6 @@ type ManageRow = { icon: keyof typeof Ionicons.glyphMap; label: string; hint: st
 const MANAGE_ROWS: ManageRow[] = [
   { icon: 'checkmark-done-outline', label: 'Tareas', hint: 'Crear, editar y borrar', screen: 'Tareas' },
   { icon: 'calendar-outline', label: 'Eventos fijos', hint: 'Lo que ya tienes agendado', screen: 'Eventos' },
-  { icon: 'flag-outline', label: 'Objetivos', hint: 'Metas de hoy, la semana o más allá', screen: 'Objetivos' },
   { icon: 'repeat-outline', label: 'Disponibilidad', hint: 'Bloques recurrentes de trabajo/escuela', screen: 'Disponibilidad' },
   { icon: 'sync-outline', label: 'Hábitos', hint: 'Metas recurrentes, con progreso real de la semana', screen: 'Habitos' },
 ];
@@ -33,7 +32,7 @@ const MANAGE_ROWS: ManageRow[] = [
 // día / Mi semana / Asistente / Ajustes, ver navigation/MainTabs.tsx), así
 // que ahí "Gestionar" sigue siendo el único camino de entrada a estas
 // pantallas y se deja completo.
-const WIDE_ONLY_HIDDEN_SCREENS: ManageRow['screen'][] = ['Tareas', 'Eventos', 'Objetivos', 'Disponibilidad', 'Habitos'];
+const WIDE_ONLY_HIDDEN_SCREENS: ManageRow['screen'][] = ['Tareas', 'Eventos', 'Disponibilidad', 'Habitos'];
 
 export default function AjustesScreen({ navigation }: Props) {
   const { user, logout } = useAuth();

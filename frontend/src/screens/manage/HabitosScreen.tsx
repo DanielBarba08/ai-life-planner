@@ -5,16 +5,16 @@ import React, { useState } from 'react';
 import { ActivityIndicator, Pressable, StyleSheet, Text, View } from 'react-native';
 
 import { habitsApi } from '../../api/endpoints';
-import type { Habit, HabitWeek } from '../../api/types';
+import type { Habit, HabitProgress, HabitWeek } from '../../api/types';
 import { BackHeader } from '../../components/BackHeader';
 import { Button } from '../../components/Button';
 import { Card } from '../../components/Card';
 import { HabitFormModal } from '../../components/HabitFormModal';
+import { HabitProgressChart } from '../../components/HabitProgressChart';
 import { ProgressRing } from '../../components/ProgressRing';
 import { Screen } from '../../components/Screen';
 import { useTheme } from '../../theme/ThemeContext';
 import { radius, spacing, type } from '../../theme/tokens';
-import { shortWeekdayLabel } from '../../utils/date';
 import type { AjustesStackParamList } from '../../navigation/types';
 
 type Props = NativeStackScreenProps<AjustesStackParamList, 'Habitos'>;
@@ -51,8 +51,8 @@ export default function HabitosScreen({ navigation }: Props) {
     <Screen>
       <BackHeader title="Hábitos" onBack={() => navigation.goBack()} />
       <Text style={styles.subtitle}>
-        Metas recurrentes ("entrenar 3 veces por semana"). El progreso es real — cuenta tareas de verdad que tú
-        confirmas cada semana, nunca se agregan solas al calendario.
+        Metas recurrentes ("entrenar 3 veces por semana"). Cada semana se agregan solas a tu calendario según la
+        frecuencia que elijas — el progreso es real, cuenta tareas de verdad, nunca un número inventado.
       </Text>
 
       <Button
@@ -92,8 +92,6 @@ export default function HabitosScreen({ navigation }: Props) {
 
 function HabitCard({ habit, onEdit, onDelete }: { habit: Habit; onEdit: () => void; onDelete: () => void }) {
   const { color } = useTheme();
-  const queryClient = useQueryClient();
-  const [confirming, setConfirming] = useState(false);
 
   const styles = React.useMemo(
     () =>
@@ -115,8 +113,9 @@ function HabitCard({ habit, onEdit, onDelete }: { habit: Habit; onEdit: () => vo
         progressTrack: { height: 8, borderRadius: radius.pill, backgroundColor: color.surfaceAlt, overflow: 'hidden' },
         progressFill: { height: '100%', borderRadius: radius.pill, backgroundColor: color.accent },
         progressLabel: { ...type.caption, color: color.muted, marginTop: spacing.xs },
-        suggestBlock: { marginTop: spacing.md, paddingTop: spacing.md, borderTopWidth: 1, borderTopColor: color.line },
-        suggestLabel: { ...type.caption, color: color.muted, marginBottom: spacing.sm },
+        overflowNote: { ...type.caption, color: color.muted, marginTop: spacing.xs, fontStyle: 'italic' },
+        chartBlock: { marginTop: spacing.md, paddingTop: spacing.md, borderTopWidth: 1, borderTopColor: color.line },
+        chartTitle: { ...type.caption, color: color.muted, marginBottom: spacing.sm },
       }),
     [color]
   );
@@ -125,18 +124,10 @@ function HabitCard({ habit, onEdit, onDelete }: { habit: Habit; onEdit: () => vo
     queryKey: ['habit-week', habit.id],
     queryFn: () => habitsApi.week(habit.id),
   });
-
-  const confirmSuggested = async () => {
-    if (!weekQuery.data || weekQuery.data.suggested_sessions.length === 0) return;
-    setConfirming(true);
-    try {
-      await habitsApi.confirmWeek(habit.id, weekQuery.data.suggested_sessions);
-      queryClient.invalidateQueries({ queryKey: ['habit-week', habit.id] });
-      queryClient.invalidateQueries({ queryKey: ['tasks'] });
-    } finally {
-      setConfirming(false);
-    }
-  };
+  const progressQuery = useQuery<HabitProgress>({
+    queryKey: ['habit-progress', habit.id],
+    queryFn: () => habitsApi.progress(habit.id, 6),
+  });
 
   const week = weekQuery.data;
   const target = week?.target_frequency_per_week ?? habit.target_frequency_per_week;
@@ -170,17 +161,25 @@ function HabitCard({ habit, onEdit, onDelete }: { habit: Habit; onEdit: () => vo
           <View style={[styles.progressFill, { width: `${Math.round(pct * 100)}%` }]} />
         </View>
         <Text style={styles.progressLabel}>
-          {confirmed} de {target} esta semana{completed > 0 ? ` · ${completed} completada${completed === 1 ? '' : 's'}` : ''}
+          {confirmed} de {target} esta semana ya en tu calendario
+          {completed > 0 ? ` · ${completed} completada${completed === 1 ? '' : 's'}` : ''}
         </Text>
+        {/* Caso borde: una meta más alta que los días que quedan en la
+            semana (ej. 14x/semana creado un jueves) nunca se alcanza del
+            todo en una sola semana — se avisa en vez de mostrar un botón
+            que no haría nada, porque ya no queda ningún día libre que
+            confirmar (ver habits_service.auto_confirm_due_sessions). */}
+        {week && week.remaining_to_suggest > 0 ? (
+          <Text style={styles.overflowNote}>
+            Tu meta es más alta que los días que quedan esta semana — seguimos la próxima.
+          </Text>
+        ) : null}
       </View>
 
-      {week && week.suggested_sessions.length > 0 ? (
-        <View style={styles.suggestBlock}>
-          <Text style={styles.suggestLabel}>
-            Faltan {week.remaining_to_suggest} sesion{week.remaining_to_suggest === 1 ? '' : 'es'} — propuestas
-            para: {week.suggested_sessions.map((s) => shortWeekdayLabel(s.suggested_date)).join(', ')}
-          </Text>
-          <Button label="Agregar a mi semana" variant="secondary" onPress={confirmSuggested} loading={confirming} />
+      {progressQuery.data && progressQuery.data.weeks.length > 0 ? (
+        <View style={styles.chartBlock}>
+          <Text style={styles.chartTitle}>Progreso de las últimas semanas</Text>
+          <HabitProgressChart weeks={progressQuery.data.weeks} />
         </View>
       ) : null}
     </Card>
