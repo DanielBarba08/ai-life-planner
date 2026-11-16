@@ -69,18 +69,24 @@ export function wallClockTime(iso: string): string {
   return match ? `${match[1]}:${match[2]}` : iso;
 }
 
-/** Todas las medias horas posibles de un día, "00:00" a "23:30" (48 en
- * total) — pedido por Daniel el 17 nov para Eventos fijos y
- * Disponibilidad: un selector con "todas las horas posibles" para elegir,
- * nunca un campo de texto libre donde teclear la hora a mano (ver
- * TimePickerField.tsx). */
-export function allHalfHourOptions(): string[] {
-  const out: string[] = [];
-  for (let h = 0; h < 24; h++) {
-    out.push(`${String(h).padStart(2, '0')}:00`);
-    out.push(`${String(h).padStart(2, '0')}:30`);
-  }
-  return out;
+export type Period = 'a.m.' | 'p.m.';
+
+/** "HH:MM" (24h, como lo guarda el backend) a formato 12 horas — para el
+ * selector de hora tipo rueda nativa (pedido por Daniel el 17 nov, con una
+ * captura de referencia del selector de iOS: columnas de hora/minuto/
+ * a.m.-p.m.), ver TimePickerField.tsx. */
+export function to12Hour(hhmm: string): { hour12: number; minute: number; period: Period } {
+  const [h, m] = hhmm.split(':').map(Number);
+  const period: Period = h < 12 ? 'a.m.' : 'p.m.';
+  const hour12 = h % 12 === 0 ? 12 : h % 12;
+  return { hour12, minute: m, period };
+}
+
+/** Inverso de to12Hour — arma de vuelta "HH:MM" (24h) para guardar, nunca
+ * se guarda nada en formato 12 horas. */
+export function from12Hour(hour12: number, minute: number, period: Period): string {
+  const h = period === 'p.m.' ? (hour12 % 12) + 12 : hour12 % 12;
+  return `${String(h).padStart(2, '0')}:${String(minute).padStart(2, '0')}`;
 }
 
 /** "Septiembre 2026" — encabezado del selector de fecha (ver DatePickerField.tsx). */
