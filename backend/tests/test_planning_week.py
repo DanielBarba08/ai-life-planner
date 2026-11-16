@@ -48,6 +48,27 @@ def test_week_includes_real_blocks_for_optimized_days_only(client, auth_headers)
     assert by_date[str(tuesday)]["has_plan"] is False
 
 
+def test_week_block_exposes_real_task_status_and_updates_on_patch(client, auth_headers):
+    """Pedido por Daniel el 16 nov: el check de "cumplido" en Mi
+    semana/Mi día era puro cálculo por hora, nunca el estado real de la
+    tarea — ahora PlanBlockRead.task_status expone Task.status de
+    verdad, y cambia en cuanto se marca completada vía PATCH
+    /v1/tasks/{id} (sin volver a optimizar nada)."""
+    resp = client.post("/v1/tasks", json={"title": "Leer", "duration_est_min": 30}, headers=auth_headers)
+    task_id = resp.json()["id"]
+    client.post("/v1/planning/optimize", json={"date": str(WEEK_START)}, headers=auth_headers)
+
+    resp = client.get(f"/v1/planning/week/{WEEK_START}", headers=auth_headers)
+    block = next(d for d in resp.json() if d["date"] == str(WEEK_START))["blocks"][0]
+    assert block["task_status"] == "pendiente"
+
+    client.patch(f"/v1/tasks/{task_id}", json={"status": "completada"}, headers=auth_headers)
+
+    resp = client.get(f"/v1/planning/week/{WEEK_START}", headers=auth_headers)
+    block = next(d for d in resp.json() if d["date"] == str(WEEK_START))["blocks"][0]
+    assert block["task_status"] == "completada"
+
+
 def test_week_is_isolated_per_user(client):
     a = client.post("/v1/auth/register", json={"email": "week-a@example.com", "password": "password123"})
     b = client.post("/v1/auth/register", json={"email": "week-b@example.com", "password": "password123"})

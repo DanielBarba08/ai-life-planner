@@ -13,6 +13,7 @@ from datetime import datetime, time, timedelta
 
 from sqlalchemy.orm import Session
 
+from app.models.day_plan import BlockSourceType, PlanBlock
 from app.models.habit import Habit, HabitStatus
 from app.models.task import Task, TaskStatus
 from app.schemas.habit import HabitProgressWeek, SuggestedSession
@@ -200,8 +201,25 @@ def delete_habit_and_its_sessions(db: Session, habit: Habit) -> None:
     app/database.py) — así que sin este borrado explícito, la prueba
     automatizada pasaría en Postgres pero fallaría en silencio en la
     suite normal de pytest.
+
+    Antes de borrar las tareas, también se borran los `plan_blocks` que
+    ya las tenían colocadas en algún día optimizado (si el usuario corrió
+    "Optimizar mi día" antes de borrar el hábito). `PlanBlock.source_id`
+    es un string suelto sin FK (ver app/models/day_plan.py), así que no
+    hay ninguna cascada automática que lo haga por su cuenta — sin este
+    paso, el bloque se queda huérfano en el Calendario apuntando a una
+    tarea que ya no existe, imposible de borrar después (404 al intentar
+    `DELETE /v1/tasks/{id}` sobre un id que ya no está). Es el mismo
+    cuidado que ya tomaba `app/routers/tasks.py::delete_task` para el
+    caso de borrar UNA tarea a la vez — bug encontrado el 16 nov, un día
+    después de agregar este borrado en bloque.
     """
-    db.query(Task).filter(Task.habit_id == habit.id).delete(synchronize_session=False)
+    task_ids = [t.id for t in db.query(Task.id).filter(Task.habit_id == habit.id).all()]
+    if task_ids:
+        db.query(PlanBlock).filter(
+            PlanBlock.source_type == BlockSourceType.TASK, PlanBlock.source_id.in_(task_ids)
+        ).delete(synchronize_session=False)
+        db.query(Task).filter(Task.id.in_(task_ids)).delete(synchronize_session=False)
     db.delete(habit)
     db.commit()
 

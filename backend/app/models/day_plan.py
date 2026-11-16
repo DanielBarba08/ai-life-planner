@@ -4,7 +4,7 @@ from datetime import date as date_type
 from datetime import datetime
 
 from sqlalchemy import JSON, Date, DateTime, Enum, ForeignKey, Integer, String, UniqueConstraint
-from sqlalchemy.orm import Mapped, mapped_column, relationship
+from sqlalchemy.orm import Mapped, mapped_column, object_session, relationship
 
 from app.database import Base
 
@@ -82,6 +82,29 @@ class PlanBlock(Base):
     explanation: Mapped["RecommendationExplanation | None"] = relationship(
         back_populates="plan_block", uselist=False, cascade="all, delete-orphan"
     )
+
+    @property
+    def task_status(self):
+        """
+        Estado REAL de la tarea detrás de este bloque — pedido por Daniel
+        el 16 nov: el check de "completado" en Mi semana/Mi día era puro
+        cálculo por hora ("¿ya pasó este bloque?"), nunca el estado de
+        verdad que el usuario marcó, así que no se podía tocar para
+        completar algo a mano. `source_id` es un string suelto sin FK
+        (ver arriba) — así que se busca aquí, vía la sesión viva de este
+        objeto, en vez de agregar una relación ORM nueva solo para esto.
+        `None` para bloques que no son de una tarea (eventos/disponibilidad)
+        o si la tarea ya no existe.
+        """
+        if self.source_type != BlockSourceType.TASK:
+            return None
+        session = object_session(self)
+        if session is None:
+            return None
+        from app.models.task import Task
+
+        task = session.get(Task, self.source_id)
+        return task.status if task else None
 
 
 class RecommendationExplanation(Base):

@@ -4,6 +4,7 @@ from datetime import datetime
 from pydantic import BaseModel, ConfigDict
 
 from app.models.day_plan import BlockSourceType, ConfidenceLevel
+from app.models.task import TaskStatus
 
 
 class ReasoningRead(BaseModel):
@@ -26,6 +27,13 @@ class PlanBlockRead(BaseModel):
     start: datetime
     end: datetime
     is_movable: bool
+    # Estado real de la tarea (pendiente/completada/pospuesta) cuando
+    # source_type es "task" — None para eventos/disponibilidad, o si la
+    # tarea ya no existe. Pedido por Daniel el 16 nov para poder marcar
+    # "cumplido" de verdad desde Mi semana/Mi día (antes el check que se
+    # veía ahí era solo un cálculo por hora, no el estado real — ver
+    # PlanBlock.task_status en app/models/day_plan.py).
+    task_status: TaskStatus | None = None
 
 
 class UnplacedItemRead(BaseModel):

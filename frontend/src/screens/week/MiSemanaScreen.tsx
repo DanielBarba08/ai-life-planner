@@ -121,6 +121,26 @@ export default function MiSemanaScreen() {
     }
   };
 
+  // Marcar un bloque como cumplido/no cumplido a mano (pedido por Daniel
+  // el 16 nov: el círculo junto al bote de basura era puro adorno — se
+  // pintaba solo si ya pasó la hora, nunca se podía tocar). Ahora cambia
+  // el status REAL de la tarea (PATCH /v1/tasks/{id}) — si es la sesión
+  // de un hábito, eso es justo lo que ya cuenta `completed_this_week`
+  // en Hábitos (ver app/habits/service.py::week_progress), así que la
+  // gráfica de progreso se actualiza sola con solo invalidar sus
+  // queries, sin ningún cambio aparte en el backend.
+  const toggleDone = async (taskId: string, currentlyDone: boolean, dateIso: string) => {
+    await tasksApi.update(taskId, { status: currentlyDone ? 'pendiente' : 'completada' });
+    await queryClient.invalidateQueries({ queryKey: ['week', weekStart] });
+    queryClient.invalidateQueries({ queryKey: ['tasks'] });
+    queryClient.invalidateQueries({ queryKey: ['habit-week'] });
+    queryClient.invalidateQueries({ queryKey: ['habit-progress'] });
+    if (dateIso === TODAY) {
+      queryClient.invalidateQueries({ queryKey: ['day-plan', TODAY] });
+      queryClient.invalidateQueries({ queryKey: ['streak'] });
+    }
+  };
+
   const weekEnd = addDaysIso(weekStart, 6);
   const isCurrentWeek = weekStart === mondayOfWeek(TODAY);
   const selectedDay = (weekQuery.data ?? []).find((d) => d.date === selectedDate);
@@ -186,6 +206,7 @@ export default function MiSemanaScreen() {
             optimizing={optimizingDate === selectedDate}
             onOptimize={() => optimizeDay(selectedDate)}
             onDeleteTask={deleteTask}
+            onToggleDone={toggleDone}
           />
         </>
       )}
@@ -261,6 +282,7 @@ function DayDetail({
   optimizing,
   onOptimize,
   onDeleteTask,
+  onToggleDone,
 }: {
   day: WeekDay | undefined;
   dateIso: string;
@@ -268,6 +290,7 @@ function DayDetail({
   optimizing: boolean;
   onOptimize: () => void;
   onDeleteTask: (taskId: string, dateIso: string) => void;
+  onToggleDone: (taskId: string, currentlyDone: boolean, dateIso: string) => void;
 }) {
   const { color } = useTheme();
   const styles = React.useMemo(
@@ -300,7 +323,9 @@ function DayDetail({
           <Text style={styles.muted}>Día libre — no hay nada planificado.</Text>
         </Card>
       ) : (
-        blocks.map((b) => <DayBlockRow key={b.id} block={b} dateIso={dateIso} onDelete={onDeleteTask} />)
+        blocks.map((b) => (
+          <DayBlockRow key={b.id} block={b} dateIso={dateIso} onDelete={onDeleteTask} onToggleDone={onToggleDone} />
+        ))
       )}
     </View>
   );
@@ -310,10 +335,12 @@ function DayBlockRow({
   block,
   dateIso,
   onDelete,
+  onToggleDone,
 }: {
   block: PlanBlock;
   dateIso: string;
   onDelete: (taskId: string, dateIso: string) => void;
+  onToggleDone: (taskId: string, currentlyDone: boolean, dateIso: string) => void;
 }) {
   const { color } = useTheme();
   const styles = React.useMemo(
@@ -352,15 +379,26 @@ function DayBlockRow({
     [color]
   );
 
-  // Un día pasado de la semana cuenta como completo entero; uno futuro,
-  // nada; el día de hoy compara bloque por bloque contra la hora actual
-  // (mismo criterio que BlockRow en MiDiaScreen.tsx — aquí se muestra como
-  // check explícito en vez de opacidad, que es justo el elemento que pidió
-  // Daniel en su captura de referencia).
-  const done = dateIso < TODAY || (dateIso === TODAY && wallClockTime(block.end) <= nowHHMM());
+  const isTask = block.source_type === 'task';
+  // Para una tarea, "cumplido" ahora es el status real (pedido por
+  // Daniel el 16 nov: antes esto era puro cálculo por hora, nunca se
+  // podía tocar). Un evento fijo/disponibilidad no tiene status que
+  // marcar — para esos se conserva el cálculo por hora de siempre, solo
+  // como indicador, nunca tocable.
+  const done = isTask
+    ? block.task_status === 'completada'
+    : dateIso < TODAY || (dateIso === TODAY && wallClockTime(block.end) <= nowHHMM());
 
   const kind = classifyBlock(block);
   const kstyle = kindStyle(kind, color);
+
+  const circle = done ? (
+    <View style={styles.doneCircle}>
+      <Ionicons name="checkmark" size={14} color={color.accentInk} />
+    </View>
+  ) : (
+    <View style={styles.pendingCircle} />
+  );
 
   return (
     <Card style={styles.card}>
@@ -374,14 +412,18 @@ function DayBlockRow({
             {wallClockTime(block.start)} – {wallClockTime(block.end)}
           </Text>
         </View>
-        {done ? (
-          <View style={styles.doneCircle}>
-            <Ionicons name="checkmark" size={14} color={color.accentInk} />
-          </View>
+        {isTask ? (
+          <Pressable
+            onPress={() => onToggleDone(block.source_id, done, dateIso)}
+            hitSlop={8}
+            accessibilityLabel={done ? 'Marcar como pendiente' : 'Marcar como cumplido'}
+          >
+            {circle}
+          </Pressable>
         ) : (
-          <View style={styles.pendingCircle} />
+          circle
         )}
-        {block.source_type === 'task' ? (
+        {isTask ? (
           <Pressable style={styles.deleteBtn} onPress={() => onDelete(block.source_id, dateIso)} hitSlop={8}>
             <Ionicons name="trash-outline" size={17} color={color.muted} />
           </Pressable>

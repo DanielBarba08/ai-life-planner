@@ -93,6 +93,51 @@ def test_deleting_a_habit_deletes_its_sessions_too(client, auth_headers):
     )
 
 
+def test_deleting_a_habit_also_removes_its_plan_blocks(client, auth_headers):
+    """Regresión encontrada el 16 nov, un día después del fix de arriba:
+    si una sesión del hábito ya había sido colocada en un día optimizado
+    (POST /v1/planning/optimize), borrar el hábito borraba la tarea pero
+    dejaba el PlanBlock huérfano apuntando a un source_id que ya no
+    existe — un bloque "zombi" que GET /v1/planning/day/{date} (lo que
+    de verdad muestra Mi semana/Mi día, sin volver a optimizar) seguía
+    devolviendo para siempre, imposible de quitar (404 al reintentar
+    DELETE /v1/tasks/{id} sobre un id que ya no está). Esto es justo lo
+    que reportó Daniel: un bloque de "leer" que no se podía eliminar."""
+    resp = client.post(
+        "/v1/habits",
+        json={"title": "Leer", "target_frequency_per_week": 1, "duration_est_min": 45, "concentration_level": "media"},
+        headers=auth_headers,
+    )
+    assert resp.status_code == 201, resp.text
+    habit_id = resp.json()["id"]
+
+    resp = client.get("/v1/tasks", headers=auth_headers)
+    sessions = [t for t in resp.json() if t["habit_id"] == habit_id]
+    assert len(sessions) == 1, sessions
+    session_date = sessions[0]["deadline"][:10]
+    session_task_id = sessions[0]["id"]
+
+    resp = client.post("/v1/planning/optimize", json={"date": session_date}, headers=auth_headers)
+    assert resp.status_code == 200, resp.text
+    plan = resp.json()
+    assert any(b["source_id"] == session_task_id for b in plan["blocks"]), (
+        "la sesión del hábito debería haber quedado colocada en el plan de ese día"
+    )
+
+    resp = client.delete(f"/v1/habits/{habit_id}", headers=auth_headers)
+    assert resp.status_code == 204
+
+    # Sin volver a optimizar nada — exactamente como Mi semana/Mi día
+    # leen el plan ya guardado — el bloque de la sesión borrada no
+    # debería seguir apareciendo.
+    resp = client.get(f"/v1/planning/day/{session_date}", headers=auth_headers)
+    assert resp.status_code == 200, resp.text
+    plan_after = resp.json()
+    assert not any(b["source_id"] == session_task_id for b in plan_after["blocks"]), (
+        "el PlanBlock de la sesión borrada no debería seguir apareciendo al releer el día sin re-optimizar"
+    )
+
+
 def test_creating_a_habit_auto_confirms_sessions_for_the_current_week(client, auth_headers):
     """Pedido por Daniel el 12 nov: "que se agreguen al horario" — ya no
     hace falta entrar a Hábitos y confirmar nada a mano."""

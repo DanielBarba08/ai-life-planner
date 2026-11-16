@@ -131,6 +131,8 @@ export interface PlanBlock {
   start: string;
   end: string;
   is_movable: boolean;
+  // Estado real de la tarea detrás de este bloque (null para eventos).
+  task_status: TaskStatus | null;
 }
 
 export interface UnplacedItem {
